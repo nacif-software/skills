@@ -1,0 +1,25 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "nacif-software",
+  "description": "Agent skills from Nacif — production workflows and tooling, shared openly with the community.",
+  "owner": {
+    "name": "Nacif",
+    "email": "ricardo@roadwayai.com"
+  },
+  "plugins": [
+    {
+      "name": "nacif-skills",
+      "source": "./",
+      "description": "Nacif's collection of agent skills. Installs every skill under skills/.",
+      "author": {
+        "name": "Nacif"
+      },
+      "homepage": "https://github.com/nacif-software/skills",
+      "repository": "https://github.com/nacif-software/skills",
+      "license": "MIT",
+      "keywords": ["skills", "agent", "claude-code", "workflows", "nacif"],
+      "skills": ["./skills/"],
+      "strict": false
+    }
+  ]
+}
