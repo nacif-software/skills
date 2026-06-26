@@ -1,4 +1,10 @@
-# Nacif Skills
+<p align="center">
+  <a href="https://nacif.software">
+    <img src="assets/nacif-logo.png" alt="Nacif" height="44">
+  </a>
+</p>
+
+<h1 align="center">Nacif Skills</h1>
 
 Agent skills you can drop into Claude Code, Cursor, Codex, and 70+ other coding
 agents. These are the prompts, workflows, and tooling we use in production
