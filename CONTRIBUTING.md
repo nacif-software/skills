@@ -1,7 +1,7 @@
 # Contributing a skill
 
 Thanks for adding to the collection. A skill is just a folder with a `SKILL.md`.
-Here's the whole process.
+Nacif Skills favors documented workflows that can be reused across real projects.
 
 ## 1. Scaffold the folder
 
@@ -51,6 +51,18 @@ Optional frontmatter we like to include: `license`, and `metadata` (`author`,
 Keep `SKILL.md` lean — it's loaded into the agent's context. Push long checklists,
 tables, and examples into `references/` and link to them.
 
+For real skills, include:
+
+- Purpose.
+- When to use and when not to use.
+- Inputs or discovery rules.
+- Procedure.
+- Validation or success criteria.
+- Common failure modes.
+
+The skill must be self-contained enough to work when installed alone. Top-level docs
+can explain the system, but the installed `SKILL.md` still needs the core behavior.
+
 ## 3. Naming and collisions
 
 `npx skills add` installs skills **flat** into the user's skills directory, so the
@@ -78,8 +90,48 @@ claude plugin validate .
 Then start your agent and give it a task that should trigger the skill — confirm it
 activates and does the right thing.
 
-## 5. Update the index and open a PR
+For workflow skills, dogfood in a real repo before calling the skill usable:
+
+- Confirm it discovers local project rules instead of hardcoding them.
+- Confirm it produces the promised artifact.
+- Confirm it asks only questions that cannot be answered by repo inspection.
+- Confirm upstream and downstream skill links are explicit in `SKILL.md`.
+- Confirm it avoids passing full conversation history to subagents.
+- Confirm verification evidence is required before completion claims.
+
+## 5. Document the workflow
+
+If the skill introduces a workflow, add or update docs:
+
+- `docs/workflows/<workflow>.md` for workflow behavior.
+- `docs/architecture.md` if it changes the suite model.
+- `docs/subagents.md` if it changes delegation or context rules.
+- `docs/decisions/<number>-<topic>.md` for important product or architecture choices.
+
+Good docs explain the artifact contract, user gates, composition with other skills,
+and how contributors should extend the pattern later.
+
+## 6. Update the index and open a PR
 
 Add a row for your skill to the table in [README.md](README.md), then open a pull
-request. Keep skills focused (one clear job each), safe (no destructive script
-defaults), and documented.
+request. Keep skills focused, safe, and documented.
+
+## Workflow vs discipline
+
+Create a **workflow** when the skill owns an end-to-end user journey with gates and
+artifacts. Examples: `design-feature`, `plan-implementation`, `test-strategy`,
+`pr-boundary`, `review-plan`, `execute-plan`, `spec-drift-check`, `review-pr`.
+
+Create a **discipline** when the skill enforces a reusable habit inside several
+workflows. Examples: `context-briefing`, `verification-gate`.
+
+Workflow skills may chain to discipline skills by name. Discipline skills should
+stay small and avoid owning the full user journey.
+
+## Originality and attribution
+
+Write new skills in original language. You may learn from public workflow systems,
+but do not copy their prose into this repo.
+
+If future work intentionally adapts source text, include the required license and
+copyright notice.

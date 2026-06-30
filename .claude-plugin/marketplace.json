@@ -4,7 +4,7 @@
   "description": "Agent skills from Nacif — production workflows and tooling, shared openly with the community.",
   "owner": {
     "name": "Nacif",
-    "email": "ricardo@roadwayai.com"
+    "email": "hello@nacif.software"
   },
   "plugins": [
     {
