@@ -6,13 +6,27 @@
 
 <h1 align="center">Nacif Skills</h1>
 
-Agent skills you can drop into Claude Code, Cursor, Codex, and 70+ other coding
-agents. These are the prompts, workflows, and tooling we use in production
+Agent workflows you can drop into Claude Code, Codex, Cursor, and 70+ other
+coding agents. These are the prompts, workflows, and tooling we use in production
 codebases at [Nacif](#about-nacif), shared openly with the community.
 
 A **skill** is a folder with a `SKILL.md` file. Its frontmatter `description` tells
 your agent *when* to use it, and the body tells it *how*. Once installed, the agent
 loads the right skill automatically when a task matches.
+
+This repo is organized around a recommended development path:
+
+```text
+design-feature -> plan-implementation -> test-strategy -> pr-boundary -> review-plan -> execute-plan -> spec-drift-check -> review-pr -> verification-gate
+```
+
+For non-trivial implementation, `execute-plan` starts only after the plan, test
+strategy, PR boundary, and plan review are ready or explicitly marked unnecessary.
+After execution, the branch moves through spec drift, PR review, and verification
+before any readiness claim.
+
+The flagship workflows are project-agnostic. They discover local repository rules
+instead of hardcoding conventions from any one codebase.
 
 ## Install
 
@@ -25,7 +39,7 @@ Skills are distributed straight from this GitHub repo — no account, no registr
 npx skills add nacif-software/skills
 
 # Install one skill
-npx skills add nacif-software/skills --skill example-skill
+npx skills add nacif-software/skills --skill design-feature
 
 # Install globally (into ~/… instead of the current project)
 npx skills add -g nacif-software/skills
@@ -53,6 +67,16 @@ collection as one plugin:
 | Skill | What it does |
 | --- | --- |
 | [`aggregate-dependabot-prs`](skills/aggregate-dependabot-prs/) | Bundles a backlog of open Dependabot PRs into a few CI-validated aggregate PRs, closing originals only for bundles that pass — never auto-merges. |
+| [`design-feature`](skills/design-feature/) | Curated feature design workflow: discover context, ask linked questions, write a design doc, and optionally continue to planning or implementation. |
+| [`plan-implementation`](skills/plan-implementation/) | Converts an approved design or PRD into a decision-complete implementation plan with files, tasks, test seams, snippets, and verification. |
+| [`test-strategy`](skills/test-strategy/) | Creates a risk-based test matrix with seams, commands, red/green signals, manual checks, and do-not-test decisions. |
+| [`pr-boundary`](skills/pr-boundary/) | Decides whether work should land as one PR, stacked PRs, separate PRs, prep work, migration sequence, or follow-up. |
+| [`review-plan`](skills/review-plan/) | Reviews implementation plans before execution for requirement coverage, test strategy, task safety, risk, and PR boundaries. |
+| [`execute-plan`](skills/execute-plan/) | Implementation workflow for approved plans, including task splitting, subagent briefs, review gates, and verification. |
+| [`spec-drift-check`](skills/spec-drift-check/) | Compares implemented work against design, plan, test strategy, PR boundary, and accepted scope before PR readiness. |
+| [`review-pr`](skills/review-pr/) | PR/branch review workflow with comment-only mode and apply-changes mode. |
+| [`context-briefing`](skills/context-briefing/) | Discipline for passing minimal, useful context to subagents and handoffs. |
+| [`verification-gate`](skills/verification-gate/) | Discipline for requiring fresh evidence before completion, fixed, ready, or passing claims. |
 | [`example-skill`](skills/example-skill/) | Template only — copy it as the starting point for a new skill. Not a working skill. |
 | [`post-deploy-changelog`](skills/post-deploy-changelog/) | Turns a production-deploy PR into concise, product-facing release notes and posts them to your team's changelog channel in its existing style. |
 | [`pr-wrap-up`](skills/pr-wrap-up/) | Finalizes a finished PR for human review: linters, AI-comment cleanup, self-review, feedback triage, CI watch, draft → ready. |
@@ -61,18 +85,53 @@ collection as one plugin:
 | [`scope-check`](skills/scope-check/) | Checks a feature or plan against the original ask — flags scope creep and needless complexity against the minimum-viable version. |
 | [`whatsapp-analyzer`](skills/whatsapp-analyzer/) | Extracts, transcribes, and OCRs WhatsApp chat exports (text, voice, images, PDFs) into one structured, timeline-based report. |
 
-_More coming — this repo is just getting started._
+More workflows are expected to grow out of real use.
 
 ## Using a skill
 
 After installing, just describe your task naturally. The agent matches it against
 each skill's `description` and applies the relevant one. You don't invoke skills by
-name (though in Claude Code you can: `/example-skill`).
+name (though in Claude Code you can use slash commands such as `/design-feature`).
+
+Example prompts:
+
+```text
+Help me design this feature before we build it.
+Create a test strategy for this implementation plan.
+Decide what should stay in this PR and what should split out.
+Review this implementation plan before we hand it to agents.
+Check whether this branch drifted from the agreed plan before we open a PR.
+Review the current branch against main and tell me whether to comment on the PR or apply fixes.
+Take this reviewed plan and implement it with subagents where the tasks are independent.
+```
+
+## Documentation
+
+- [Architecture](docs/architecture.md): how workflows, discipline skills, artifacts,
+  and context control fit together.
+- [Design feature workflow](docs/workflows/design-feature.md): the full happy path
+  for feature design.
+- [Plan implementation workflow](docs/workflows/plan-implementation.md): the plan
+  contract between design and execution.
+- [Test strategy workflow](docs/workflows/test-strategy.md): risk-based test matrix
+  planning for behavior, seams, and verification.
+- [PR boundary workflow](docs/workflows/pr-boundary.md): how planned or existing
+  work should be split for review, deploy, and rollback.
+- [Review plan workflow](docs/workflows/review-plan.md): the quality gate for
+  implementation plans before execution.
+- [Review PR workflow](docs/workflows/review-pr.md): review modes and finding format.
+- [Execute plan workflow](docs/workflows/execute-plan.md): implementation task
+  splitting, review gates, and verification.
+- [Spec drift check workflow](docs/workflows/spec-drift-check.md): trace final work
+  back to agreed artifacts before PR review.
+- [Subagents](docs/subagents.md): task briefs, parallelization, and review loops.
+- [Extending](docs/extending.md): how to add a workflow or discipline.
 
 ## Contributing
 
 Want to add a skill? See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: copy
-`skills/example-skill/`, rename the folder, rewrite `SKILL.md`, and open a PR.
+`skills/example-skill/`, rename the folder, rewrite `SKILL.md`, document any new
+workflow contract, test it in a real project, and open a PR.
 
 ## About Nacif
 
