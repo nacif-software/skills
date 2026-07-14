@@ -64,12 +64,13 @@ scope, model, or task split before retrying.
 
 ## Review loop
 
-Every implementation task needs review before acceptance:
+Every implementation task needs review before acceptance. `task-dispatch-loop` runs
+this loop per task so it stays the only thing competing for a subagent's attention:
 
 1. Spec review first.
 2. Quality review second.
-3. Fix Critical and Important findings.
-4. Re-review changed areas.
+3. Fix Critical and Important findings — same implementer, one fix at a time.
+4. Re-review changed areas with a fresh reviewer dispatch.
 5. Mark complete only after verification evidence is read.
 
 ## Dispatch graph
@@ -79,16 +80,18 @@ reviewed plan
   -> execute-plan coordinator
      -> visible task board
      -> context-briefing for each task
-        -> parallel-safe worker tasks
-        -> sequential worker tasks, one at a time
-     -> task review and integration
+        -> task-dispatch-loop, parallel-safe tasks together
+        -> task-dispatch-loop, sequential tasks one at a time
+     -> board update from task-dispatch-loop's dispatch and review evidence
      -> spec-drift-check
      -> review-pr
      -> verification-gate
 ```
 
 Workers do not choose the graph. The coordinator owns dispatch order, cross-task
-integration, drift handling, review, and final verification.
+integration, drift handling, review, and final verification. `task-dispatch-loop`
+owns what happens inside one task: implementer dispatch, spec review, quality
+review, and the fix loop between them — see "Review loop" below.
 
 ## Model routing
 

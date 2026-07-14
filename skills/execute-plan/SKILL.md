@@ -6,17 +6,18 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # Execute Plan
 
 ## Purpose
 
-Implement an approved or reviewed plan through bounded tasks, minimal context
-briefs, review gates, and fresh verification. The main thread coordinates the work;
-fresh worker subagents implement planned tasks whenever a delegation mechanism is
-available.
+Coordinate an approved or reviewed plan through bounded tasks, minimal context
+briefs, review gates, and fresh verification. This skill owns the task board,
+task splitting, PR boundary, spec drift, whole-branch review, and the final
+verification gate. It does not implement tasks itself and does not run the
+per-task implement/review loop directly — that loop is `task-dispatch-loop`.
 
 ## When to use
 
@@ -32,12 +33,15 @@ available.
 
 - Do not silently implement a reviewed plan in the main thread.
 - Create a visible task board before any code edits.
+- **REQUIRED SUB-SKILL:** Use `task-dispatch-loop` to run every task's
+  implement/spec-review/quality-review/fix loop. Do not re-implement that loop
+  inline in this skill's procedure.
 - Dispatch at least one worker subagent for planned implementation when the platform
   supports subagents, even if tasks must run sequentially.
 - Dispatch independent tasks in parallel when conflict-safe.
-- A task brief that was drafted but never sent through an actual subagent dispatch
-  call does not satisfy delegation. In Claude Code, dispatch means a literal `Agent`
-  tool call with a named `subagent_type`; see "Dispatch call contract" below.
+- A task board row is not delegation until `task-dispatch-loop` reports back an
+  actual dispatch: a fired `Agent` tool call with a named `subagent_type`, not a
+  drafted brief. See `context-briefing`'s dispatch contract for the call shape.
 - If no subagent mechanism is available, stop before code edits and say:
   `NO_DELEGATION_AVAILABLE`. Ask whether to continue in single-agent mode or switch
   to an environment that supports subagents.
@@ -92,48 +96,21 @@ Model rules:
    relevant source artifact, plan task, test-strategy rows, PR boundary membership,
    plan-review findings, local rules, verification commands, selected model, and
    escalation conditions.
-7. Dispatch worker subagents using the dispatch call contract below:
-   - Independent tasks: dispatch together when conflict-safe.
-   - Sequential tasks: dispatch one worker at a time.
-   - Single planned task: dispatch one worker instead of implementing in the main
-     thread when subagents are available.
-8. Require each worker to self-review and report status, changed files, evidence,
-   concerns, and any decision it could not safely make.
-9. Route the worker status; a worker report never accepts the task by itself.
-10. Run the task review state machine below. Do not mark the task done until its
-    required gates pass.
-11. Continue through ready tasks without asking permission between tasks. Stop only
-    for an unresolved blocker, material ambiguity, or user decision.
-12. Run `spec-drift-check` after all tasks land and before branch readiness review.
-13. Run `review-pr` using the native Codex review policy after unresolved Critical or Important
+7. Run `task-dispatch-loop` for each task:
+   - Independent tasks: start their loops together when conflict-safe.
+   - Sequential tasks: run one task's loop to completion before starting the next.
+   - Single planned task: still run it through `task-dispatch-loop` instead of
+     implementing in the main thread when subagents are available.
+8. Read what `task-dispatch-loop` reports back for each task: dispatch evidence
+   (`subagent_type`, confirmed call), the implementer's final status, and both
+   review verdicts. Do not mark a board row done on a status label alone.
+9. Continue through ready tasks without asking permission between tasks. Stop only
+   for an unresolved blocker, material ambiguity, or user decision that
+   `task-dispatch-loop` escalated back.
+10. Run `spec-drift-check` after all tasks land and before branch readiness review.
+11. Run `review-pr` using the native Codex review policy after unresolved Critical or Important
     drift is fixed or explicitly accepted.
-14. Use `verification-gate` before any completion, commit, push, or PR claim.
-
-## Dispatch call contract
-
-A task board row that lists a worker brief is not delegation. Delegation is a
-subagent dispatch call that actually ran.
-
-In Claude Code, dispatch every implementer task with a literal `Agent` tool call
-that names a concrete `subagent_type`:
-
-```text
-Agent({
-  subagent_type: "general-purpose",  // or a project-defined implementer agent
-  prompt: "<context-briefing brief for this task>"
-})
-```
-
-- Name the `subagent_type` before dispatch; "dispatch a worker" with no concrete
-  type is not executable.
-- The brief produced by `context-briefing` is the `prompt` value, not a paraphrase.
-- One dispatch call per task. Sequential tasks get one call at a time; independent
-  tasks get one call each, sent together.
-- After the call returns, record the `subagent_type` and confirmation that the tool
-  call fired in the task board's Dispatch column before evaluating the worker's
-  report.
-- Never substitute drafting a brief, updating the task board, or reasoning about
-  what a worker would do for the actual call. Only a fired `Agent` tool call counts.
+12. Use `verification-gate` before any completion, commit, push, or PR claim.
 
 ## Task board contract
 
@@ -157,32 +134,16 @@ Board rules:
   verification unless `NO_DELEGATION_AVAILABLE` is acknowledged.
 - Status changes only after reading worker output and verification evidence.
 
-## Worker status routing
+## Worker status and per-task review
 
-- `DONE`: independently inspect the diff and evidence, then start the requirement gate.
-- `DONE_WITH_CONCERNS`: classify each concern before review. Correctness, scope, or
-  architecture concerns block acceptance.
-- `NEEDS_CONTEXT`: add only the missing context and re-dispatch the same worker tier.
-- `BLOCKED`: identify the cause. Supply missing context, upgrade the model when
-  reasoning capacity is the problem, split an oversized task, or return a faulty plan
-  for revision. Never retry unchanged.
-
-## Task review state machine
-
-```text
-worker implementation
-  -> independent requirement check
-     -> missing, extra, or misunderstood scope: same worker fixes, then re-check
-     -> requirement accepted
-        -> task-scoped code-quality review when an isolated diff exists
-           -> Critical or Important finding: same worker fixes, then re-review
-           -> accepted or quality pending for integrated review
-```
-
-The requirement checker must inspect the actual code and evidence instead of trusting
-the worker summary. All requirement drift blocks task acceptance. Critical and
-Important quality findings block acceptance; Minor findings may be recorded for the
-final review.
+`task-dispatch-loop` owns the implementer dispatch, worker status routing
+(`DONE` / `DONE_WITH_CONCERNS` / `NEEDS_CONTEXT` / `BLOCKED`), the spec-review-then-
+quality-review order, and the fix/re-review loop for each task. This skill's job is
+to read back what that loop reports — dispatch evidence and both review verdicts —
+and decide whether the task board row can move to done, not to re-run that logic
+here. If `task-dispatch-loop` escalates a blocker it could not resolve (a faulty
+plan assumption, a missing decision, an unavailable model), treat it the same as
+any other blocked task: fix the plan, supply the missing decision, or ask the user.
 
 ## Native Codex review policy
 
@@ -220,7 +181,8 @@ Parallelize only when both are true:
 
 Prefer sequential execution when tasks touch the same files, change shared public
 interfaces, require migrations, or depend on a decision not yet written down. Sequential
-does not mean main-thread implementation; dispatch one worker task at a time.
+does not mean main-thread implementation; run one task's `task-dispatch-loop` at a
+time instead.
 
 ## Task brief checklist
 
@@ -242,18 +204,16 @@ does not mean main-thread implementation; dispatch one worker task at a time.
 
 - Dispatching agents in parallel because tasks look small, not because they are independent.
 - Implementing planned tasks in the main thread while subagents are available.
-- Writing a task brief and marking a board row dispatched without an actual `Agent`
-  tool call firing.
-- Treating "I described what the worker should do" as equivalent to dispatching it.
+- Re-implementing the dispatch/review/fix loop inline instead of using
+  `task-dispatch-loop`.
+- Marking a board row done because `task-dispatch-loop` returned, without reading
+  its dispatch evidence and review verdicts.
 - Starting edits before creating the task board.
 - Treating sequential tasks as an excuse to skip worker delegation.
 - Giving every task the strongest model instead of using the plan to lower execution cost.
-- Retrying a blocked fast worker without adding context, splitting the task, or upgrading capability.
 - Passing the entire conversation instead of a brief.
 - Omitting the test-strategy rows, PR boundary, or plan-review findings from task
   briefs.
-- Accepting a worker report without inspecting diff and evidence.
-- Starting quality review before spec review.
 - Using another GPT model when `gpt-5.6-sol` was required for native Codex review.
 - Claiming `/codex:review` was invoked when the host requires the user to run it.
 - Claiming completion before a whole-branch verification gate.
@@ -267,12 +227,12 @@ does not mean main-thread implementation; dispatch one worker task at a time.
 
 - Each task has clear ownership, acceptance criteria, and verification.
 - The task board was created before implementation and stayed current.
-- Planned implementation tasks were dispatched to worker subagents when available.
-- Every dispatched task has a recorded `subagent_type` and confirmation that the
-  `Agent` tool call actually fired, not just a drafted brief.
+- Every planned task ran through `task-dispatch-loop` rather than being
+  implemented inline.
+- Every board row carries the `subagent_type` and confirmation that the `Agent`
+  tool call actually fired, plus both review verdicts from `task-dispatch-loop`.
 - Worker models matched task complexity and were escalated only with a recorded reason.
 - Parallel tasks are conflict-safe or isolated.
-- Every accepted task has review evidence and verification evidence.
 - The integrated change has native Codex review evidence from `gpt-5.6-sol`, or an
   explicit accepted downgrade.
 - The final branch has a spec drift report.

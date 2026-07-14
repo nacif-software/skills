@@ -76,6 +76,7 @@ collection as one plugin:
 | [`spec-drift-check`](skills/spec-drift-check/) | Compares implemented work against design, plan, test strategy, PR boundary, and accepted scope before PR readiness. |
 | [`review-pr`](skills/review-pr/) | PR/branch review workflow with comment-only mode and apply-changes mode. |
 | [`context-briefing`](skills/context-briefing/) | Discipline for passing minimal, useful context to subagents and handoffs. |
+| [`task-dispatch-loop`](skills/task-dispatch-loop/) | Runs one plan task through fresh subagents: implement, spec review, quality review, fix loop, done. |
 | [`verification-gate`](skills/verification-gate/) | Discipline for requiring fresh evidence before completion, fixed, ready, or passing claims. |
 | [`example-skill`](skills/example-skill/) | Template only — copy it as the starting point for a new skill. Not a working skill. |
 | [`post-deploy-changelog`](skills/post-deploy-changelog/) | Turns a production-deploy PR into concise, product-facing release notes and posts them to your team's changelog channel in its existing style. |
