@@ -54,6 +54,7 @@ small and focused.
 Examples:
 
 - `context-briefing`
+- `task-dispatch-loop`
 - `verification-gate`
 
 ## Default graph
@@ -66,7 +67,7 @@ design-feature
      -> review-plan
         -> execute-plan
            -> context-briefing
-              -> parallel-safe subagents
+              -> task-dispatch-loop, one instance per task
            -> spec-drift-check
               -> review-pr
                  -> verification-gate
@@ -76,8 +77,11 @@ Hard gates:
 
 - `execute-plan` does not start for non-trivial work until test strategy, PR boundary,
   and plan review are ready or explicitly unnecessary.
-- Parallel subagents are dispatched only from `execute-plan`, only with
-  `context-briefing`, and only for independent tasks.
+- Parallel subagents are dispatched only from `execute-plan`, only through
+  `task-dispatch-loop` with a `context-briefing` brief, and only for independent
+  tasks.
+- Every `task-dispatch-loop` instance dispatches its implementer through a literal,
+  named subagent call; a drafted brief that never fired is not delegation.
 - `review-pr` follows `spec-drift-check` in the happy path.
 - `verification-gate` precedes every completion, ready, fixed, commit, push, or PR
   claim.
@@ -89,8 +93,10 @@ Model routing:
 - Use the strongest available Anthropic model for plan authoring and plan review.
 - Use Claude Sonnet or a faster capable Anthropic model for decision-complete worker
   tasks; escalate only when task complexity requires it.
-- Use native Codex review with `gpt-5.6-sol` for code-quality review. Do not silently
-  substitute another GPT model.
+- Use native Codex review through the official OpenAI Codex plugin for code-quality
+  review — a dispatched subagent whose only job is to run the plugin's companion
+  script. Do not substitute a raw `codex` CLI call, an invented model-override
+  flag, or a generic reviewer's own opinion.
 
 ## Chaining model
 
@@ -124,9 +130,14 @@ review-plan
 
 execute-plan
   -> context-briefing, for each subagent task brief
+  -> task-dispatch-loop, to run each task's implement/review/fix loop
   -> spec-drift-check, after implementation and before branch readiness
   -> review-pr, for whole-branch review after blocking drift is cleared
   -> verification-gate, after tasks and before branch completion
+
+task-dispatch-loop
+  -> context-briefing, to build the implementer brief
+  -> execute-plan, when it escalates a blocker it cannot resolve itself
 
 spec-drift-check
   -> execute-plan, when drift needs code or task fixes

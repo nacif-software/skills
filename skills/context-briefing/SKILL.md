@@ -117,6 +117,9 @@ Rules:
   must not be marked as delegated.
 - Other platforms use their own subagent or task-tool primitive; the same rule
   applies: name the concrete mechanism and confirm it fired.
+- When the brief is for an implementation task inside `execute-plan`, use
+  `task-dispatch-loop` to run the dispatch and the review/fix loop around it,
+  rather than dispatching once and stopping here.
 
 ## Common mistakes
 

@@ -8,11 +8,10 @@ diffs. It supports two modes:
 - Mode A: prepare or post PR review comments.
 - Mode B: apply accepted review changes and verify them.
 
-For code-quality review, prefer native Codex review with `gpt-5.6-sol`. In Claude
-Code, use `/codex:review --base <ref> --wait` when the user-invoked command is
-available and active Codex configuration selects that model; otherwise use
-`codex review` with an explicit model override. Do not silently substitute another
-GPT model.
+For code-quality review, dispatch a fresh subagent to run the official OpenAI
+Codex plugin's companion script (`codex-companion.mjs`) — the same mechanism
+`review-and-wrap-up-pr` uses. Do not substitute a raw `codex` CLI call, an
+invented model-override flag, or a generic reviewer's own opinion.
 
 ## Flow
 
