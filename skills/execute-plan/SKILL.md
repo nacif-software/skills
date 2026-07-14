@@ -148,32 +148,41 @@ any other blocked task: fix the plan, supply the missing decision, or ask the us
 ## Native Codex review policy
 
 Use native Codex review for code-quality review, with `gpt-5.6-sol` as the only GPT
-review model:
+review model. Autonomous review is dispatched, not run inline — an `Agent` tool
+call and "use the Codex harness" are not alternatives; the dispatched subagent's
+job is to invoke the harness internally and return its findings unedited.
 
 1. In Claude Code, prefer `/codex:review --base <ref> --wait` for the integrated
    branch only after confirming the active Codex configuration selects
    `gpt-5.6-sol`. This command may be user-only; if so, ask the user to invoke it and
    do not pretend the workflow called it. If the model cannot be confirmed, use the
-   explicitly pinned CLI path below.
-2. For autonomous review, run one of:
+   dispatched path below.
+2. For autonomous review, dispatch a fresh `Agent` subagent whose only job is to run
+   one of:
 
    ```bash
    codex review -c 'model="gpt-5.6-sol"' --base <ref>
    codex review -c 'model="gpt-5.6-sol"' --uncommitted
    ```
 
-3. When the platform exposes reviewer subagents but not the command or CLI, dispatch
-   a fresh reviewer with `gpt-5.6-sol`.
+   and report the command's output as the verdict, unedited. Use the platform's
+   Codex plugin agent when one is installed (a `codex:*` subagent type); otherwise
+   use a project-defined reviewer agent whose only instructions are to run that
+   command and return its output.
+3. If no subagent mechanism exists at all, running the command directly in the
+   coordinator's own shell is the last resort. Report `NATIVE_REVIEW_INLINE` when
+   this happens — it lost the fresh-context isolation every other review step gets.
 4. If `gpt-5.6-sol` is unavailable, report `CODEX_REVIEW_UNAVAILABLE`. Do not silently
    downgrade to another GPT model. Use an Anthropic fallback reviewer only after the
    user accepts the downgrade.
 
 Run task-scoped native review only when the task has an isolated diff, commit, or
 worktree boundary. `task-dispatch-loop` is what actually invokes this policy per
-task, as its quality-review step — it must use this exact command shape and
-pinned model for that step, not a generic reviewer subagent, whenever this policy
-applies. Always run one final native Codex review over the integrated change via
-`review-pr`.
+task, as its quality-review step — it must dispatch the review this way, on this
+pinned model, whenever this policy applies; it must not substitute a generic
+reviewer that skips the Codex harness, and it must not run the command directly
+instead of dispatching it. Always run one final native Codex review over the
+integrated change via `review-pr`.
 
 ## Parallelization rules
 

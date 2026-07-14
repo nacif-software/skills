@@ -43,11 +43,13 @@ drift checks, or PR review for the coordinator's attention.
 - Spec review and quality review each run as their own fresh reviewer dispatch,
   never as the implementer's self-report and never as the coordinator's own
   opinion of the diff.
-- Quality review uses whatever code-quality reviewer the calling workflow
-  designates, dispatched through whatever transport that workflow specifies. If
-  `execute-plan` designates native Codex review, dispatch native Codex review by
-  its documented CLI or command transport — not a generic `Agent` subagent. Only
-  fall back to a generic reviewer subagent when the calling workflow names no
+- Quality review is always a fresh `Agent` dispatch, same as the implementer and
+  spec reviewer. What differs is which agent it targets. If `execute-plan`
+  designates native Codex review, the dispatched subagent's job is to invoke the
+  native Codex review harness internally (its documented command, on `gpt-5.6-sol`)
+  and return the findings unedited — not a generic reviewer that skips the harness,
+  and not the coordinator running the review command itself instead of dispatching
+  it. Only use a generic reviewer subagent when the calling workflow names no
   code-quality reviewer at all.
 - Spec review always runs before quality review. Do not run quality review on a
   task that has not yet passed spec review.
@@ -78,10 +80,10 @@ Run this for one task:
 4. Read spec reviewer verdict
    -> gaps or extra scope: same implementer fixes only that finding, go to 3
    -> spec compliant: continue
-5. Dispatch quality reviewer over this task's isolated diff, through the calling
-   workflow's designated transport (native Codex CLI/command per `execute-plan`'s
-   Native Codex review policy, or a fresh `Agent` subagent only if no reviewer is
-   designated), passing <references/quality-reviewer-brief.md>
+5. Dispatch quality reviewer over this task's isolated diff: a fresh `Agent`
+   subagent that internally runs native Codex review per `execute-plan`'s policy
+   (or a generic reviewer subagent only if the calling workflow designates none),
+   passing <references/quality-reviewer-brief.md>
 6. Read quality reviewer verdict
    -> Critical or Important finding: same implementer fixes only that finding, go to 5
    -> Minor only or no findings: continue
@@ -125,28 +127,37 @@ artifact only, not general code quality.
 
 ## Dispatching the quality reviewer
 
-The quality reviewer's transport is not this skill's choice — it is whatever the
-calling workflow's code-quality review policy specifies. Ask what that policy is
-before dispatching; do not default to a generic subagent when the calling
-workflow names a specific reviewer.
+Like the implementer and spec reviewer, the quality reviewer is always dispatched
+through a fresh `Agent` tool call. What changes is which agent it targets and what
+that agent does internally — not whether it is a dispatch at all. Ask what the
+calling workflow's code-quality review policy is before dispatching; do not
+default to a generic reviewer when the calling workflow names a specific one.
 
 **When the calling workflow designates native Codex review** (this is
-`execute-plan`'s default in Claude Code): dispatch native Codex review scoped to
-this task's isolated diff, following that workflow's Native Codex review policy
-exactly — same pinned model, same command shape, same evidence contract. This is
-a CLI or command-transport call, not an `Agent` tool call:
+`execute-plan`'s default in Claude Code): dispatch a fresh subagent whose only
+instructions are to invoke the native Codex review harness on this task's isolated
+diff, using that workflow's pinned model and command, and return the harness's
+output unedited:
 
-```bash
-codex review -c 'model="gpt-5.6-sol"' --uncommitted
-# or, once the task's change is committed:
-codex review -c 'model="gpt-5.6-sol"' --base <ref-before-this-task>
+```text
+Agent({
+  subagent_type: "codex:<plugin-agent>",  // the platform's Codex plugin agent when
+                                          // installed, otherwise a project-defined
+                                          // codex-review agent
+  prompt: "Run exactly:\ncodex review -c 'model=\"gpt-5.6-sol\"' --uncommitted\n" +
+          "(or --base <ref-before-this-task> once committed)\n" +
+          "Return the command's output verbatim as the verdict. Do not summarize " +
+          "or edit it. Do not edit files.\n\n<references/quality-reviewer-brief.md>"
+})
 ```
 
-Pass `references/quality-reviewer-brief.md`'s content as the review instructions
-for that command, and read its output as the verdict — do not paraphrase it.
+This preserves the native review engine and the pinned model while still giving
+the review a fresh, isolated dispatch with the same board-evidence contract as
+every other step in this loop — using a subagent and using the Codex harness are
+not competing choices.
 
-**Only when the calling workflow designates no code-quality reviewer**, fall back
-to a fresh generic subagent:
+**Only when the calling workflow designates no code-quality reviewer**, dispatch a
+generic reviewer subagent instead, whose own judgment is the review:
 
 ```text
 Agent({
@@ -156,7 +167,7 @@ Agent({
 ```
 
 Quality reviewer checks maintainability, idioms, and risk, not spec compliance,
-regardless of which transport dispatched it.
+regardless of which agent performed it.
 
 If the calling workflow also requires a separate whole-branch review after all
 tasks land (for example `review-pr`'s native Codex review over the integrated
@@ -188,10 +199,13 @@ unresolved placeholders.
 - Giving a reviewer the implementer's chat transcript instead of just the diff and
   the task.
 - Letting a fix pass touch more than the specific finding it was dispatched to fix.
-- Defaulting quality review to a generic `Agent` subagent when the calling
-  workflow designates native Codex review, silently downgrading the reviewer.
-- Treating Codex review as another `Agent({ subagent_type: ... })` call instead of
-  the CLI/command transport the calling workflow's policy specifies.
+- Defaulting quality review to a generic reviewer subagent when the calling
+  workflow designates native Codex review, silently downgrading the review engine.
+- Running the native Codex review command directly in the coordinator's own shell
+  instead of dispatching a fresh subagent to run it — losing the fresh-context
+  isolation and board evidence every other step gets.
+- Letting the dispatched Codex-review subagent summarize or edit the harness's
+  output instead of returning it verbatim as the verdict.
 - Skipping the task-scoped quality review because a whole-branch review will run
   later.
 
@@ -199,11 +213,12 @@ unresolved placeholders.
 
 - Every task ran through exactly one implementer subagent dispatch and a fresh
   spec reviewer dispatch.
-- The quality reviewer used the transport the calling workflow designates (native
-  Codex CLI/command when `execute-plan` requires it, generic subagent only when no
-  reviewer is designated), on the pinned model when one is required.
+- The quality reviewer was a fresh `Agent` dispatch; when `execute-plan` requires
+  native Codex review, that subagent's job was to invoke the harness internally on
+  the pinned model and return its findings unedited.
 - Every fix loop re-ran the specific review that raised the issue, not both
   reviews, and re-reviewed the latest revision.
-- The task board row carries dispatch evidence (subagent_type or transport,
-  confirmed call) and both review verdicts, not just a status label.
+- The task board row carries dispatch evidence (`subagent_type` for each of the
+  three dispatches, confirmed calls) and both review verdicts, not just a status
+  label.
 - Independent tasks ran their loops concurrently without shared write conflicts.
