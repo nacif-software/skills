@@ -56,7 +56,7 @@ collection as one plugin:
 | [`example-skill`](skills/example-skill/) | Template only — copy it as the starting point for a new skill. Not a working skill. |
 | [`post-deploy-changelog`](skills/post-deploy-changelog/) | Turns a production-deploy PR into concise, product-facing release notes and posts them to your team's changelog channel in its existing style. |
 | [`pr-wrap-up`](skills/pr-wrap-up/) | Finalizes a finished PR for human review: linters, AI-comment cleanup, self-review, feedback triage, CI watch, draft → ready. |
-| [`review-and-wrap-up-pr`](skills/review-and-wrap-up-pr/) | Hardens a PR with an adversarial Codex review loop (fixing only real P1/P2 issues) before running the wrap-up flow. |
+| [`review-and-wrap-up-pr`](skills/review-and-wrap-up-pr/) | Hardens a PR with an adversarial Codex review loop via the official [OpenAI Codex plugin](https://github.com/openai/codex-plugin-cc) (fixing only real must-fix issues) before running the wrap-up flow. |
 | [`review-dependabot-prs`](skills/review-dependabot-prs/) | Reviews every open Dependabot PR in parallel, checks changelogs for breaking changes, and gives a per-PR merge-safety verdict. |
 | [`scope-check`](skills/scope-check/) | Checks a feature or plan against the original ask — flags scope creep and needless complexity against the minimum-viable version. |
 | [`whatsapp-analyzer`](skills/whatsapp-analyzer/) | Extracts, transcribes, and OCRs WhatsApp chat exports (text, voice, images, PDFs) into one structured, timeline-based report. |
