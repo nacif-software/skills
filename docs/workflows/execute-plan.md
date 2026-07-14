@@ -8,11 +8,15 @@ for non-trivial work; execution depends on a concrete, reviewed plan.
 
 The coordinator should not silently implement the plan in the main thread. A visible
 task board comes first, then worker subagents receive focused task briefs whenever
-the platform supports delegation.
+the platform supports delegation. The per-task implement/review/fix loop is not
+re-implemented here — `task-dispatch-loop` owns it, so that rule never has to
+compete with board bookkeeping, drift checks, or PR review for the coordinator's
+attention.
 
 In Claude Code, prefer Anthropic models for planning and implementation. Use the
 strongest available Anthropic model for plan-level judgment, Claude Sonnet for most
-bounded workers, and native Codex review with `gpt-5.6-sol` for code-quality review.
+bounded workers, and native Codex review through the OpenAI Codex plugin —
+dispatched as a fresh subagent — for code-quality review.
 
 ## Flow
 
@@ -25,9 +29,9 @@ reviewed implementation plan
   -> split tasks
   -> classify parallel safety
   -> create minimal task briefs
-  -> dispatch workers in parallel or sequentially
-  -> review each task
-  -> fix or reassign findings
+  -> task-dispatch-loop, in parallel or sequentially per task
+  -> read back dispatch evidence and review verdicts
+  -> fix or reassign findings that task-dispatch-loop escalated
   -> spec-drift-check
   -> review-pr whole-branch review
   -> verification gate
@@ -57,6 +61,7 @@ Before edits, create a visible task board with:
 - Owned files.
 - Dependencies.
 - Parallel or sequential mode.
+- Dispatch evidence: the concrete subagent mechanism used and confirmation it fired.
 - Worker status.
 - Verification evidence.
 - Review status.
@@ -64,19 +69,22 @@ Before edits, create a visible task board with:
 
 Every implementation-plan task should map to one board row and one worker brief.
 Sequential tasks still use workers when subagents are available; they just run one at
-a time.
+a time. A brief that was drafted but never sent through an actual dispatch call is not
+delegation — see `docs/subagents.md` for the dispatch call contract.
 
 ## Worker and review loop
 
-Worker status routes the next action; it never accepts the task by itself. Add context
-for `NEEDS_CONTEXT`, upgrade only when capability is the blocker, split oversized
-tasks, and return faulty decisions to planning.
+`task-dispatch-loop` runs each task through implementer dispatch, spec review,
+quality review, and the fix/re-review loop between them. Worker status routes the
+next action inside that loop; it never accepts the task by itself. That loop adds
+context for `NEEDS_CONTEXT`, upgrades only when capability is the blocker, splits
+oversized tasks, and escalates faulty plan decisions back to this coordinator
+instead of guessing.
 
-Each task passes an independent requirement check. When a task-scoped diff exists, it
-also receives code-quality review before acceptance. The integrated change always
-receives native Codex review with `gpt-5.6-sol`; in Claude Code, prefer
-`/codex:review --base <ref> --wait` only when the active Codex configuration confirms
-that model, and use the explicitly pinned `codex review` CLI fallback otherwise.
+The integrated change always receives native Codex review through the OpenAI Codex
+plugin; in Claude Code, that means dispatching a fresh subagent to locate and run
+the plugin's companion script (`codex-companion.mjs`) — the same mechanism
+`review-and-wrap-up-pr` uses — not a raw `codex` CLI call.
 
 ## Parallel safety
 

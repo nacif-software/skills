@@ -64,12 +64,13 @@ scope, model, or task split before retrying.
 
 ## Review loop
 
-Every implementation task needs review before acceptance:
+Every implementation task needs review before acceptance. `task-dispatch-loop` runs
+this loop per task so it stays the only thing competing for a subagent's attention:
 
 1. Spec review first.
 2. Quality review second.
-3. Fix Critical and Important findings.
-4. Re-review changed areas.
+3. Fix Critical and Important findings — same implementer, one fix at a time.
+4. Re-review changed areas with a fresh reviewer dispatch.
 5. Mark complete only after verification evidence is read.
 
 ## Dispatch graph
@@ -79,16 +80,18 @@ reviewed plan
   -> execute-plan coordinator
      -> visible task board
      -> context-briefing for each task
-        -> parallel-safe worker tasks
-        -> sequential worker tasks, one at a time
-     -> task review and integration
+        -> task-dispatch-loop, parallel-safe tasks together
+        -> task-dispatch-loop, sequential tasks one at a time
+     -> board update from task-dispatch-loop's dispatch and review evidence
      -> spec-drift-check
      -> review-pr
      -> verification-gate
 ```
 
 Workers do not choose the graph. The coordinator owns dispatch order, cross-task
-integration, drift handling, review, and final verification.
+integration, drift handling, review, and final verification. `task-dispatch-loop`
+owns what happens inside one task: implementer dispatch, spec review, quality
+review, and the fix loop between them — see "Review loop" below.
 
 ## Model routing
 
@@ -97,10 +100,32 @@ In Claude Code, prefer Anthropic models for coordinator and worker roles:
 - Strongest available Anthropic model for planning, architecture, and plan review.
 - Claude Sonnet for bounded implementation and integration work.
 - Faster Anthropic models only for narrow mechanical work with cheap verification.
-- Native Codex review with `gpt-5.6-sol` for code-quality review.
+- Native Codex review through the OpenAI Codex plugin's companion script,
+  dispatched as a fresh subagent, for code-quality review.
 
 Upgrade a worker only when reasoning capacity is the blocker. Add missing context when
 context is the blocker, and split the task when size is the blocker.
+
+## Dispatch call contract
+
+A worker brief is not delegation until an actual subagent dispatch call fires with
+that brief as its input. Drafting the brief, updating the task board, or reasoning
+about what a worker would do are not substitutes.
+
+In Claude Code, dispatch means a literal `Agent` tool call with a named
+`subagent_type`:
+
+```text
+Agent({
+  subagent_type: "general-purpose",  // or a project-defined implementer agent
+  prompt: "<the minimal task brief below>"
+})
+```
+
+Record, per task: the `subagent_type` used and confirmation that the call fired.
+A task cannot be marked in progress or done without this evidence. Other platforms
+use their own subagent primitive; the same rule applies — name the concrete
+mechanism and confirm it fired.
 
 ## Minimal task brief
 
@@ -143,6 +168,8 @@ context is the blocker, and split the task when size is the blocker.
 - Dispatching parallel tasks before shared contracts are stable.
 - Implementing plan tasks in the coordinator thread while worker delegation is
   available.
+- Marking a task dispatched because a brief was written, without an actual subagent
+  dispatch call firing.
 - Asking workers to "figure out the architecture."
 - Treating worker self-review as the only review.
 - Letting a worker silently expand scope.
