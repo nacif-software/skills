@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Context Briefing
@@ -90,6 +90,34 @@ Exclude:
 - Concerns or follow-ups
 ```
 
+## Dispatch contract
+
+A brief is not delegation until it is delivered through an actual subagent dispatch.
+Writing the brief in the conversation and then doing the work in the main thread does
+not satisfy any workflow that requires delegation.
+
+In Claude Code, dispatch means a literal `Agent` tool call that names a concrete
+`subagent_type` and passes the brief as its prompt:
+
+```text
+Agent({
+  subagent_type: "general-purpose",  // or a project-defined implementer agent
+  prompt: "<the filled-in brief template below>"
+})
+```
+
+Rules:
+
+- Name the `subagent_type` before dispatch. "Dispatch a worker" without a concrete
+  type is not an instruction the coordinator can execute.
+- The brief is the entire `prompt` value of that call, not a summary of what the
+  prompt will contain.
+- Record the call as dispatch evidence: `subagent_type`, task ID, and confirmation
+  that the Agent tool actually ran. A brief that was only drafted, not dispatched,
+  must not be marked as delegated.
+- Other platforms use their own subagent or task-tool primitive; the same rule
+  applies: name the concrete mechanism and confirm it fired.
+
 ## Common mistakes
 
 - Passing the whole conversation to be "safe" -> pass artifacts and decisions instead.
@@ -99,6 +127,9 @@ Exclude:
 - Omitting PR boundary or test-strategy slices -> workers cannot preserve the plan.
 - Choosing a model without recording why its capability fits the task.
 - Asking a fast worker to make architecture decisions that belong in the plan.
+- Drafting a brief and then implementing it directly instead of making an actual
+  subagent dispatch call.
+- Treating "I wrote a task brief" as equivalent to "I dispatched a subagent."
 
 ## Success criteria
 
@@ -107,3 +138,5 @@ Exclude:
 - Unrelated chat history and unrelated files are excluded.
 - The brief carries only the artifact slices needed for the assigned task.
 - The receiver knows its role, capability tier, and escalation conditions.
+- Every brief has matching dispatch evidence: named `subagent_type` and a confirmed
+  tool call, not just drafted text.

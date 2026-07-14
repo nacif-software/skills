@@ -57,6 +57,7 @@ Before edits, create a visible task board with:
 - Owned files.
 - Dependencies.
 - Parallel or sequential mode.
+- Dispatch evidence: the concrete subagent mechanism used and confirmation it fired.
 - Worker status.
 - Verification evidence.
 - Review status.
@@ -64,7 +65,8 @@ Before edits, create a visible task board with:
 
 Every implementation-plan task should map to one board row and one worker brief.
 Sequential tasks still use workers when subagents are available; they just run one at
-a time.
+a time. A brief that was drafted but never sent through an actual dispatch call is not
+delegation — see `docs/subagents.md` for the dispatch call contract.
 
 ## Worker and review loop
 

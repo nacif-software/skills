@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Execute Plan
@@ -35,6 +35,9 @@ available.
 - Dispatch at least one worker subagent for planned implementation when the platform
   supports subagents, even if tasks must run sequentially.
 - Dispatch independent tasks in parallel when conflict-safe.
+- A task brief that was drafted but never sent through an actual subagent dispatch
+  call does not satisfy delegation. In Claude Code, dispatch means a literal `Agent`
+  tool call with a named `subagent_type`; see "Dispatch call contract" below.
 - If no subagent mechanism is available, stop before code edits and say:
   `NO_DELEGATION_AVAILABLE`. Ask whether to continue in single-agent mode or switch
   to an environment that supports subagents.
@@ -89,7 +92,7 @@ Model rules:
    relevant source artifact, plan task, test-strategy rows, PR boundary membership,
    plan-review findings, local rules, verification commands, selected model, and
    escalation conditions.
-7. Dispatch worker subagents:
+7. Dispatch worker subagents using the dispatch call contract below:
    - Independent tasks: dispatch together when conflict-safe.
    - Sequential tasks: dispatch one worker at a time.
    - Single planned task: dispatch one worker instead of implementing in the main
@@ -106,14 +109,40 @@ Model rules:
     drift is fixed or explicitly accepted.
 14. Use `verification-gate` before any completion, commit, push, or PR claim.
 
+## Dispatch call contract
+
+A task board row that lists a worker brief is not delegation. Delegation is a
+subagent dispatch call that actually ran.
+
+In Claude Code, dispatch every implementer task with a literal `Agent` tool call
+that names a concrete `subagent_type`:
+
+```text
+Agent({
+  subagent_type: "general-purpose",  // or a project-defined implementer agent
+  prompt: "<context-briefing brief for this task>"
+})
+```
+
+- Name the `subagent_type` before dispatch; "dispatch a worker" with no concrete
+  type is not executable.
+- The brief produced by `context-briefing` is the `prompt` value, not a paraphrase.
+- One dispatch call per task. Sequential tasks get one call at a time; independent
+  tasks get one call each, sent together.
+- After the call returns, record the `subagent_type` and confirmation that the tool
+  call fired in the task board's Dispatch column before evaluating the worker's
+  report.
+- Never substitute drafting a brief, updating the task board, or reasoning about
+  what a worker would do for the actual call. Only a fired `Agent` tool call counts.
+
 ## Task board contract
 
 The board must exist before edits and stay updated as work progresses.
 
 ```markdown
-| ID | Task | Worker | Model | Files | Depends on | Mode | Status | Evidence | Review |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| T1 | <task name> | <brief path or summary> | <model/tier> | <owned files> | <none/T#> | parallel/sequential | pending/in progress/done/blocked | <command/result> | requirement pending/quality pending/accepted |
+| ID | Task | Worker | Model | Files | Depends on | Mode | Dispatch | Status | Evidence | Review |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| T1 | <task name> | <brief path or summary> | <model/tier> | <owned files> | <none/T#> | parallel/sequential | <subagent_type, confirmed fired> | pending/in progress/done/blocked | <command/result> | requirement pending/quality pending/accepted |
 ```
 
 Board rules:
@@ -121,6 +150,9 @@ Board rules:
 - Every task from the implementation plan appears on the board.
 - Each board row maps to one worker brief.
 - Each board row records the chosen worker model or capability tier.
+- Each board row's Dispatch column records the `subagent_type` used and confirms an
+  actual `Agent` tool call fired for that task. A row cannot move past `pending`
+  without this.
 - Main-thread work is limited to coordination, brief writing, integration, review, and
   verification unless `NO_DELEGATION_AVAILABLE` is acknowledged.
 - Status changes only after reading worker output and verification evidence.
@@ -210,6 +242,9 @@ does not mean main-thread implementation; dispatch one worker task at a time.
 
 - Dispatching agents in parallel because tasks look small, not because they are independent.
 - Implementing planned tasks in the main thread while subagents are available.
+- Writing a task brief and marking a board row dispatched without an actual `Agent`
+  tool call firing.
+- Treating "I described what the worker should do" as equivalent to dispatching it.
 - Starting edits before creating the task board.
 - Treating sequential tasks as an excuse to skip worker delegation.
 - Giving every task the strongest model instead of using the plan to lower execution cost.
@@ -233,6 +268,8 @@ does not mean main-thread implementation; dispatch one worker task at a time.
 - Each task has clear ownership, acceptance criteria, and verification.
 - The task board was created before implementation and stayed current.
 - Planned implementation tasks were dispatched to worker subagents when available.
+- Every dispatched task has a recorded `subagent_type` and confirmation that the
+  `Agent` tool call actually fired, not just a drafted brief.
 - Worker models matched task complexity and were escalated only with a recorded reason.
 - Parallel tasks are conflict-safe or isolated.
 - Every accepted task has review evidence and verification evidence.
