@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Context Briefing
@@ -28,6 +28,9 @@ A brief should let the receiver succeed without letting unrelated context steer 
 
 Include:
 
+- Role: implementer, requirement checker, code reviewer, or verifier.
+- Capability: mechanical, integration, or judgment; include the selected model when
+  the platform exposes model choice.
 - Goal: one sentence with the outcome.
 - Scope: exact files, modules, issue, PR, branch, or artifact to work on.
 - Inputs: source artifact, relevant plan task, relevant test-strategy rows, PR
@@ -50,6 +53,12 @@ Exclude:
 ```markdown
 ## Task
 <one sentence>
+
+## Role and Capability
+- Role: implementer / requirement checker / code reviewer / verifier
+- Capability: mechanical / integration / judgment
+- Model: <selected model or platform default>
+- Escalate when: <conditions that require more context, a stronger model, or replanning>
 
 ## Context to read
 - `<path-or-url>`: <why it matters>
@@ -88,6 +97,8 @@ Exclude:
 - Giving multiple unrelated jobs -> split the work into separate briefs.
 - Omitting the output contract -> require status, files changed, evidence, and concerns.
 - Omitting PR boundary or test-strategy slices -> workers cannot preserve the plan.
+- Choosing a model without recording why its capability fits the task.
+- Asking a fast worker to make architecture decisions that belong in the plan.
 
 ## Success criteria
 
@@ -95,3 +106,4 @@ Exclude:
 - The brief names exact scope, constraints, verification, and report-back format.
 - Unrelated chat history and unrelated files are excluded.
 - The brief carries only the artifact slices needed for the assigned task.
+- The receiver knows its role, capability tier, and escalation conditions.

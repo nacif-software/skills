@@ -13,6 +13,7 @@ The coordinator keeps:
 - Full user conversation.
 - Design doc and decision map.
 - Implementation plan and task graph.
+- Visible task board.
 - Test strategy, PR boundary, plan review, and spec drift state.
 - Integration responsibility.
 
@@ -26,6 +27,11 @@ Workers receive:
 - Acceptance criteria.
 - Verification commands.
 - Output contract.
+- Selected model or capability tier and escalation conditions.
+
+The coordinator should not implement planned tasks in the main thread while subagents
+are available. Main-thread work is coordination, brief writing, integration, review,
+and final verification.
 
 ## Parallelization checklist
 
@@ -71,8 +77,10 @@ Every implementation task needs review before acceptance:
 ```text
 reviewed plan
   -> execute-plan coordinator
+     -> visible task board
      -> context-briefing for each task
         -> parallel-safe worker tasks
+        -> sequential worker tasks, one at a time
      -> task review and integration
      -> spec-drift-check
      -> review-pr
@@ -81,6 +89,18 @@ reviewed plan
 
 Workers do not choose the graph. The coordinator owns dispatch order, cross-task
 integration, drift handling, review, and final verification.
+
+## Model routing
+
+In Claude Code, prefer Anthropic models for coordinator and worker roles:
+
+- Strongest available Anthropic model for planning, architecture, and plan review.
+- Claude Sonnet for bounded implementation and integration work.
+- Faster Anthropic models only for narrow mechanical work with cheap verification.
+- Native Codex review with `gpt-5.6-sol` for code-quality review.
+
+Upgrade a worker only when reasoning capacity is the blocker. Add missing context when
+context is the blocker, and split the task when size is the blocker.
 
 ## Minimal task brief
 
@@ -121,6 +141,8 @@ integration, drift handling, review, and final verification.
 
 - Passing a full transcript to every worker.
 - Dispatching parallel tasks before shared contracts are stable.
+- Implementing plan tasks in the coordinator thread while worker delegation is
+  available.
 - Asking workers to "figure out the architecture."
 - Treating worker self-review as the only review.
 - Letting a worker silently expand scope.

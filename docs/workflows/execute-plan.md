@@ -6,6 +6,14 @@
 into implemented work. It should not replace `plan-implementation` or `review-plan`
 for non-trivial work; execution depends on a concrete, reviewed plan.
 
+The coordinator should not silently implement the plan in the main thread. A visible
+task board comes first, then worker subagents receive focused task briefs whenever
+the platform supports delegation.
+
+In Claude Code, prefer Anthropic models for planning and implementation. Use the
+strongest available Anthropic model for plan-level judgment, Claude Sonnet for most
+bounded workers, and native Codex review with `gpt-5.6-sol` for code-quality review.
+
 ## Flow
 
 ```text
@@ -13,10 +21,11 @@ reviewed implementation plan
   -> read test strategy artifact when present
   -> read PR boundary artifact when present
   -> discover repository rules
+  -> create task board
   -> split tasks
   -> classify parallel safety
   -> create minimal task briefs
-  -> run parallel-safe work where possible
+  -> dispatch workers in parallel or sequentially
   -> review each task
   -> fix or reassign findings
   -> spec-drift-check
@@ -39,6 +48,36 @@ Each task from the plan needs:
 Prefer vertical slices that can be verified independently. Avoid horizontal tasks
 that force several workers to invent or coordinate the same interface.
 
+## Task board
+
+Before edits, create a visible task board with:
+
+- Task ID and task name.
+- Worker brief summary or path.
+- Owned files.
+- Dependencies.
+- Parallel or sequential mode.
+- Worker status.
+- Verification evidence.
+- Review status.
+- Worker model or capability tier.
+
+Every implementation-plan task should map to one board row and one worker brief.
+Sequential tasks still use workers when subagents are available; they just run one at
+a time.
+
+## Worker and review loop
+
+Worker status routes the next action; it never accepts the task by itself. Add context
+for `NEEDS_CONTEXT`, upgrade only when capability is the blocker, split oversized
+tasks, and return faulty decisions to planning.
+
+Each task passes an independent requirement check. When a task-scoped diff exists, it
+also receives code-quality review before acceptance. The integrated change always
+receives native Codex review with `gpt-5.6-sol`; in Claude Code, prefer
+`/codex:review --base <ref> --wait` only when the active Codex configuration confirms
+that model, and use the explicitly pinned `codex review` CLI fallback otherwise.
+
 ## Parallel safety
 
 Run tasks in parallel when:
@@ -57,6 +96,9 @@ Run tasks sequentially when:
 - The plan has unresolved Critical or Important `review-plan` findings.
 - The work would violate an explicit `pr-boundary` artifact.
 - The task would skip or weaken the agreed `test-strategy` artifact.
+
+If no subagent mechanism exists, the coordinator should stop before edits, report
+`NO_DELEGATION_AVAILABLE`, and ask whether to continue in single-agent mode.
 
 ## Review gates
 
@@ -81,7 +123,9 @@ The workflow ends only after:
 ## Success criteria
 
 - The plan is implemented through bounded tasks.
+- The task board is visible before code edits.
 - Independent tasks are parallelized when safe.
+- Sequential tasks still receive focused worker briefs when subagents are available.
 - Subagents receive minimal briefs instead of full chat history.
 - The final branch has a spec drift report before PR review.
 - The final branch has a `review-pr` whole-branch review before readiness claims.

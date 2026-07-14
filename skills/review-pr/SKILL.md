@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Review PR
@@ -21,6 +21,25 @@ comments or apply accepted review changes with verification.
 - Use for PR review, branch review, diff review, pre-merge review, or review feedback.
 - Use when the user wants either comments for a PR or help applying review changes.
 - Do not use for designing new work from scratch. Use `design-feature` first.
+
+## Review engine policy
+
+Prefer native Codex review for code-quality findings. In Claude Code, the preferred
+interactive command is `/codex:review --base <ref> --wait`. Some installations mark
+the command user-only; ask the user to invoke it rather than claiming the workflow ran
+it. Use the slash command only after confirming the active Codex configuration selects
+`gpt-5.6-sol`; otherwise use the explicitly pinned CLI command below.
+
+For autonomous review, run:
+
+```bash
+codex review -c 'model="gpt-5.6-sol"' --base <ref>
+codex review -c 'model="gpt-5.6-sol"' --uncommitted
+```
+
+`gpt-5.6-sol` is the only GPT model allowed for this review path. If native Codex
+review is unavailable, report `CODEX_REVIEW_UNAVAILABLE`; use a strongest-available
+Anthropic reviewer only after the user accepts that downgrade.
 
 ## Procedure
 
@@ -37,7 +56,9 @@ comments or apply accepted review changes with verification.
    - If no intent exists, infer from diff and state the assumption.
 3. Discover repo rules and verification commands before reviewing.
 4. Inspect the diff against the correct base.
-5. Review in this order:
+5. Run or ingest native Codex review using the policy above. Treat its output as review
+   evidence, not as permission to skip intent, boundary, or drift checks.
+6. Review in this order:
    - Correctness and user-visible behavior.
    - Spec or intent alignment.
    - PR boundary alignment: unrelated work, missing split, unsafe stack, or follow-up
@@ -47,11 +68,11 @@ comments or apply accepted review changes with verification.
    - Missing tests or weak verification.
    - Maintainability and local idioms.
    - Security, privacy, data integrity, migrations, and compatibility where relevant.
-6. Report findings by severity:
+7. Report findings by severity:
    - Critical: likely breakage, data loss, security issue, or failed core requirement.
    - Important: should fix before merge.
    - Minor: optional cleanup.
-7. Ask the user to choose a mode:
+8. Ask the user to choose a mode:
    - A: Comment review to PR.
    - B: Apply review changes.
 
@@ -99,11 +120,15 @@ Choose A to comment on the PR, or B to apply accepted changes.
 - Ignoring a PR boundary artifact and reviewing only the raw diff.
 - Ignoring a spec drift report or test strategy artifact.
 - Applying review fixes that change scope without re-running `spec-drift-check`.
+- Silently using a different GPT model when native Codex review requires
+  `gpt-5.6-sol`.
+- Treating native review output as a substitute for checking the source intent.
 
 ## Success criteria
 
 - The review uses the correct base and stated intent.
 - The review accounts for spec drift and test strategy artifacts when present.
+- Native Codex review used `gpt-5.6-sol`, or the report names an accepted downgrade.
 - Findings are severity-ranked and actionable.
 - Mode A produces comments ready for the PR.
 - Mode B applies only verified fixes and reports fresh evidence.

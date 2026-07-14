@@ -82,6 +82,16 @@ Hard gates:
 - `verification-gate` precedes every completion, ready, fixed, commit, push, or PR
   claim.
 
+Model routing:
+
+- In Claude Code, prefer Anthropic models for planning, coordination, implementation,
+  requirement checks, and verification.
+- Use the strongest available Anthropic model for plan authoring and plan review.
+- Use Claude Sonnet or a faster capable Anthropic model for decision-complete worker
+  tasks; escalate only when task complexity requires it.
+- Use native Codex review with `gpt-5.6-sol` for code-quality review. Do not silently
+  substitute another GPT model.
+
 ## Chaining model
 
 Workflow skills may chain to other skills by name:

@@ -39,6 +39,12 @@ The plan should be concrete enough to delegate without extra conversation:
 - Exact verification commands and expected signals.
 - Code snippets where they lock important contracts.
 - Final verification.
+- Worker capability tier and escalation conditions for every task.
+
+When model selection is available, use the strongest reasoning model for plan
+authoring and review. In Claude Code, prefer the strongest available Anthropic model.
+The completed plan should make most implementation tasks suitable for Claude Sonnet
+or a faster capable Anthropic model without requiring new architecture decisions.
 
 ## Code snippet policy
 

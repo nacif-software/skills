@@ -8,6 +8,12 @@ diffs. It supports two modes:
 - Mode A: prepare or post PR review comments.
 - Mode B: apply accepted review changes and verify them.
 
+For code-quality review, prefer native Codex review with `gpt-5.6-sol`. In Claude
+Code, use `/codex:review --base <ref> --wait` when the user-invoked command is
+available and active Codex configuration selects that model; otherwise use
+`codex review` with an explicit model override. Do not silently substitute another
+GPT model.
+
 ## Flow
 
 ```text

@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Plan Implementation
@@ -17,6 +17,10 @@ Turn an approved design or requirement artifact into a decision-complete build p
 The plan should be precise enough for `execute-plan` or another agent to implement
 without inventing architecture, file ownership, test strategy, task order, or PR
 scope.
+
+When model selection is available, author and review the plan with the strongest
+available reasoning model. In Claude Code, prefer the strongest available Anthropic
+model for this judgment-heavy work.
 
 ## When to use
 
@@ -39,10 +43,14 @@ scope.
    - Which files must not be touched.
 5. Split work into vertical tasks that each leave the project closer to working
    software. Avoid all-backend, all-frontend, all-tests task splits.
-6. Mark task dependencies and parallel safety:
+6. Mark task dependencies, parallel safety, and worker profile:
    - Parallel-safe only when write scopes are disjoint or isolated and shared
      interfaces are already specified.
    - Sequential when tasks share files, contracts, migrations, or unresolved decisions.
+   - Mechanical: narrow, decision-complete work suitable for a fast model.
+   - Integration: cross-file work suitable for a balanced model such as Claude Sonnet.
+   - Judgment: architecture or ambiguous work that must stay with the strongest model
+     or return to planning before dispatch.
 7. Recommend PR shape or call `pr-boundary` when the landing shape is non-trivial:
    - One PR, stacked PRs, separate PRs, prep plus feature, migration sequence, or
      follow-up work.
@@ -90,8 +98,8 @@ scope.
 - Do not touch: `<path>` - <reason>
 
 ## Task Graph
-- Task 1: <name> - blocked by: none - parallel: no/yes, <reason>
-- Task 2: <name> - blocked by: Task 1 - parallel: no/yes, <reason>
+- Task 1: <name> - blocked by: none - parallel: no/yes, <reason> - worker: mechanical/integration/judgment
+- Task 2: <name> - blocked by: Task 1 - parallel: no/yes, <reason> - worker: mechanical/integration/judgment
 
 ## PR Shape
 - Recommended: one PR / stacked PRs / separate PRs / prep plus feature / migration sequence / follow-up.
@@ -107,6 +115,11 @@ scope.
 
 **Acceptance criteria**
 - <observable result>
+
+**Worker profile**
+- Tier: mechanical / integration / judgment
+- Reason: <why this tier can execute without inventing decisions>
+- Escalate when: <missing context, architecture choice, unexpected coupling>
 
 **Steps**
 - [ ] Write or update the focused test.
@@ -138,6 +151,8 @@ scope.
 - File paths are exact.
 - Task dependencies are explicit.
 - Parallel-safe claims explain why the tasks will not collide.
+- Every task has a worker profile and escalation condition.
+- Mechanical and integration workers do not need to invent architecture.
 - PR shape names what stays together and what splits, or references a `pr-boundary`
   artifact.
 - Tests verify behavior through useful interfaces.
@@ -155,6 +170,8 @@ scope.
 - Hiding decisions in vague steps such as "add validation" or "handle errors".
 - Planning horizontal layers instead of vertical slices.
 - Marking tasks parallel-safe before shared contracts are stable.
+- Assigning a fast worker to a task that still contains design decisions.
+- Spending the strongest model on mechanical edits after the plan removed ambiguity.
 - Hiding refactors, migrations, cleanup, or optional polish inside the feature PR.
 - Treating PR shape as a final packaging detail instead of an implementation input.
 - Omitting the expected red failure for new tests.

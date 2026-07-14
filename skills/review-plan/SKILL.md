@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Review Plan
@@ -16,6 +16,9 @@ metadata:
 Review an implementation plan before code is written. Catch missing requirements,
 unsafe task splits, weak tests, false parallelism, and poor PR boundaries while the
 artifact is still cheap to change.
+
+When model selection is available, prefer the strongest available reasoning model
+for plan review. In Claude Code, prefer the strongest available Anthropic model.
 
 ## When to use
 
@@ -60,6 +63,9 @@ If either artifact is missing, state the gap and review only what can be verifie
    - Vertical tasks produce reviewable behavior or artifacts.
    - Parallel-safe claims have disjoint write scopes or stable shared contracts.
    - Task briefs can be derived without passing the full conversation.
+   - Every task names a mechanical, integration, or judgment worker profile.
+   - Fast workers receive decision-complete tasks; unresolved architecture stays with
+     planning or the strongest model.
 7. Check risk areas when relevant:
    - Security, auth, privacy, data integrity, migrations, compatibility,
      performance, observability, rollout, rollback, and documentation.
@@ -111,6 +117,10 @@ Blocked | Needs revisions | Ready
 ## Parallelization Review
 - <task/group>: safe / sequential / unclear, because <reason>.
 
+## Model Routing Review
+- <task>: mechanical / integration / judgment, because <reason>.
+- Escalation trigger: <condition>.
+
 ## PR Boundary
 - Same PR: <changes that belong together>.
 - Separate PR, stack, prep, or migration: <work that needs a different landing shape>.
@@ -133,6 +143,7 @@ Choose A to revise the plan, B to revise tests, C to revise PR shape, or D to ex
 - Letting Important findings become "we will notice during implementation".
 - Sending work to `execute-plan` while test strategy or PR boundary findings remain
   unresolved.
+- Approving a cheap worker tier for a task that still requires design judgment.
 
 ## Success criteria
 
@@ -141,5 +152,6 @@ Choose A to revise the plan, B to revise tests, C to revise PR shape, or D to ex
 - Test strategy advice separates useful coverage from brittle or low-value tests.
 - PR boundary advice separates feature, prep, migration, cleanup, and follow-up work.
 - `execute-plan` can start with fewer assumptions and smaller subagent briefs.
+- Worker capability assignments match task complexity and escalation rules.
 - A Ready verdict cites the test strategy and PR boundary artifacts, or explains why
   they are unnecessary.
