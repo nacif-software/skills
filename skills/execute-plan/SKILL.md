@@ -169,7 +169,11 @@ review model:
    user accepts the downgrade.
 
 Run task-scoped native review only when the task has an isolated diff, commit, or
-worktree boundary. Always run one final native Codex review over the integrated change.
+worktree boundary. `task-dispatch-loop` is what actually invokes this policy per
+task, as its quality-review step — it must use this exact command shape and
+pinned model for that step, not a generic reviewer subagent, whenever this policy
+applies. Always run one final native Codex review over the integrated change via
+`review-pr`.
 
 ## Parallelization rules
 

@@ -40,9 +40,15 @@ drift checks, or PR review for the coordinator's attention.
 - The implementer runs as a fresh subagent dispatched through a literal `Agent`
   tool call with a named `subagent_type`. A brief that was drafted but never
   dispatched does not start this loop — see `context-briefing`'s dispatch contract.
-- Spec review and quality review each run as their own fresh subagent dispatch,
+- Spec review and quality review each run as their own fresh reviewer dispatch,
   never as the implementer's self-report and never as the coordinator's own
   opinion of the diff.
+- Quality review uses whatever code-quality reviewer the calling workflow
+  designates, dispatched through whatever transport that workflow specifies. If
+  `execute-plan` designates native Codex review, dispatch native Codex review by
+  its documented CLI or command transport — not a generic `Agent` subagent. Only
+  fall back to a generic reviewer subagent when the calling workflow names no
+  code-quality reviewer at all.
 - Spec review always runs before quality review. Do not run quality review on a
   task that has not yet passed spec review.
 - A task is not done until both reviews return a passing verdict against the
@@ -61,14 +67,21 @@ Run this for one task:
    -> NEEDS_CONTEXT: add the missing fact, redispatch the same implementer
    -> BLOCKED: change context, model, or task size, or return the task to
       planning; never redispatch unchanged
-   -> DONE or DONE_WITH_CONCERNS with no blocking concerns: continue
+   -> DONE_WITH_CONCERNS: classify each concern first.
+      -> correctness, scope, or architecture concern: treat as a fix pass —
+         same implementer resolves it, then re-read status
+      -> observation only (e.g. "this file is getting large"): note it and
+         continue
+   -> DONE, or DONE_WITH_CONCERNS with only non-blocking observations: continue
 3. Dispatch spec reviewer (fresh subagent, no access to implementer's reasoning)
    Agent({ subagent_type: <named type>, prompt: <references/spec-reviewer-brief.md> })
 4. Read spec reviewer verdict
    -> gaps or extra scope: same implementer fixes only that finding, go to 3
    -> spec compliant: continue
-5. Dispatch quality reviewer (fresh subagent, no access to implementer's reasoning)
-   Agent({ subagent_type: <named type>, prompt: <references/quality-reviewer-brief.md> })
+5. Dispatch quality reviewer over this task's isolated diff, through the calling
+   workflow's designated transport (native Codex CLI/command per `execute-plan`'s
+   Native Codex review policy, or a fresh `Agent` subagent only if no reviewer is
+   designated), passing <references/quality-reviewer-brief.md>
 6. Read quality reviewer verdict
    -> Critical or Important finding: same implementer fixes only that finding, go to 5
    -> Minor only or no findings: continue
@@ -94,25 +107,61 @@ Agent({
 inputs, constraints, verification, report-back contract). This skill owns the call
 itself and the loop around it.
 
-## Dispatching reviewers
+## Dispatching the spec reviewer
 
-Both reviewers are fresh subagents with no access to the implementer's private
-reasoning or self-review — they read the diff, the task, and the source artifact
-directly, the same way a human reviewer would.
+Always a fresh subagent with no access to the implementer's private reasoning or
+self-review — it reads the diff, the task, and the source artifact directly, the
+same way a human reviewer would.
 
 ```text
 Agent({
   subagent_type: "general-purpose",  // or a project-defined reviewer agent
-  prompt: "<references/spec-reviewer-brief.md or references/quality-reviewer-brief.md>"
+  prompt: "<references/spec-reviewer-brief.md>"
 })
 ```
 
-- Spec reviewer checks the change against the task's acceptance criteria and
-  source artifact only, not general code quality.
-- Quality reviewer checks maintainability, idioms, and risk, not spec compliance.
-- If the calling workflow also requires an external reviewer for the whole branch
-  (for example a `codex-review`-style gate), that requirement is unchanged by this
-  skill — this loop's quality reviewer step still runs on the task-scoped diff.
+Spec reviewer checks the change against the task's acceptance criteria and source
+artifact only, not general code quality.
+
+## Dispatching the quality reviewer
+
+The quality reviewer's transport is not this skill's choice — it is whatever the
+calling workflow's code-quality review policy specifies. Ask what that policy is
+before dispatching; do not default to a generic subagent when the calling
+workflow names a specific reviewer.
+
+**When the calling workflow designates native Codex review** (this is
+`execute-plan`'s default in Claude Code): dispatch native Codex review scoped to
+this task's isolated diff, following that workflow's Native Codex review policy
+exactly — same pinned model, same command shape, same evidence contract. This is
+a CLI or command-transport call, not an `Agent` tool call:
+
+```bash
+codex review -c 'model="gpt-5.6-sol"' --uncommitted
+# or, once the task's change is committed:
+codex review -c 'model="gpt-5.6-sol"' --base <ref-before-this-task>
+```
+
+Pass `references/quality-reviewer-brief.md`'s content as the review instructions
+for that command, and read its output as the verdict — do not paraphrase it.
+
+**Only when the calling workflow designates no code-quality reviewer**, fall back
+to a fresh generic subagent:
+
+```text
+Agent({
+  subagent_type: "general-purpose",  // or a project-defined reviewer agent
+  prompt: "<references/quality-reviewer-brief.md>"
+})
+```
+
+Quality reviewer checks maintainability, idioms, and risk, not spec compliance,
+regardless of which transport dispatched it.
+
+If the calling workflow also requires a separate whole-branch review after all
+tasks land (for example `review-pr`'s native Codex review over the integrated
+change), that requirement is unchanged by this skill — this loop's quality
+reviewer step covers only the task-scoped diff.
 
 ## Templates
 
@@ -125,6 +174,9 @@ unresolved placeholders.
 
 ## Common mistakes
 
+- Proceeding to spec review on a `DONE_WITH_CONCERNS` report without first
+  classifying whether the concern is blocking (correctness, scope, architecture)
+  or just an observation.
 - Letting the implementer's self-review stand in for spec or quality review.
 - Starting quality review before spec review has passed.
 - Reviewing a revision that is not the implementer's latest fix.
@@ -136,13 +188,22 @@ unresolved placeholders.
 - Giving a reviewer the implementer's chat transcript instead of just the diff and
   the task.
 - Letting a fix pass touch more than the specific finding it was dispatched to fix.
+- Defaulting quality review to a generic `Agent` subagent when the calling
+  workflow designates native Codex review, silently downgrading the reviewer.
+- Treating Codex review as another `Agent({ subagent_type: ... })` call instead of
+  the CLI/command transport the calling workflow's policy specifies.
+- Skipping the task-scoped quality review because a whole-branch review will run
+  later.
 
 ## Success criteria
 
-- Every task ran through exactly one implementer subagent dispatch, with fresh
-  spec and quality review subagent dispatches.
+- Every task ran through exactly one implementer subagent dispatch and a fresh
+  spec reviewer dispatch.
+- The quality reviewer used the transport the calling workflow designates (native
+  Codex CLI/command when `execute-plan` requires it, generic subagent only when no
+  reviewer is designated), on the pinned model when one is required.
 - Every fix loop re-ran the specific review that raised the issue, not both
   reviews, and re-reviewed the latest revision.
-- The task board row carries dispatch evidence (subagent_type, confirmed call) and
-  both review verdicts, not just a status label.
+- The task board row carries dispatch evidence (subagent_type or transport,
+  confirmed call) and both review verdicts, not just a status label.
 - Independent tasks ran their loops concurrently without shared write conflicts.
