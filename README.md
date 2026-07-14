@@ -62,6 +62,21 @@ collection as one plugin:
 /plugin install nacif-skills@nacif-software
 ```
 
+### Automatic Codex review in Claude Code
+
+The `codex-review` gate requires OpenAI's Codex plugin for Claude Code. Install it
+once alongside this marketplace:
+
+```text
+/plugin marketplace add openai/codex-plugin-cc
+/plugin install codex@openai-codex
+/reload-plugins
+/codex:setup
+```
+
+After setup, `codex:codex-rescue` must appear in `/agents`. Workflow reviews dispatch
+that plugin agent automatically; users do not run `/codex:review` during the flow.
+
 ## Skills
 
 | Skill | What it does |
@@ -75,6 +90,7 @@ collection as one plugin:
 | [`execute-plan`](skills/execute-plan/) | Implementation workflow for approved plans, including task splitting, subagent briefs, review gates, and verification. |
 | [`spec-drift-check`](skills/spec-drift-check/) | Compares implemented work against design, plan, test strategy, PR boundary, and accepted scope before PR readiness. |
 | [`review-pr`](skills/review-pr/) | PR/branch review workflow with comment-only mode and apply-changes mode. |
+| [`codex-review`](skills/codex-review/) | Dispatches an automatic, fresh, read-only Codex quality review through the Claude Code OpenAI Codex plugin agent. |
 | [`context-briefing`](skills/context-briefing/) | Discipline for passing minimal, useful context to subagents and handoffs. |
 | [`verification-gate`](skills/verification-gate/) | Discipline for requiring fresh evidence before completion, fixed, ready, or passing claims. |
 | [`example-skill`](skills/example-skill/) | Template only — copy it as the starting point for a new skill. Not a working skill. |

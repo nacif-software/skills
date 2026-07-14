@@ -15,6 +15,7 @@ V1 includes:
 - `pr-boundary`
 - `review-plan`
 - `review-pr`
+- `codex-review`
 - `execute-plan`
 - `spec-drift-check`
 - `context-briefing`
