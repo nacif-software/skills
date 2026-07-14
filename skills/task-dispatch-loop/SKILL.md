@@ -10,7 +10,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Task Dispatch Loop
@@ -45,12 +45,12 @@ drift checks, or PR review for the coordinator's attention.
   opinion of the diff.
 - Quality review is always a fresh `Agent` dispatch, same as the implementer and
   spec reviewer. What differs is which agent it targets. If `execute-plan`
-  designates native Codex review, the dispatched subagent's job is to invoke the
-  native Codex review harness internally (its documented command, on `gpt-5.6-sol`)
-  and return the findings unedited — not a generic reviewer that skips the harness,
-  and not the coordinator running the review command itself instead of dispatching
-  it. Only use a generic reviewer subagent when the calling workflow names no
-  code-quality reviewer at all.
+  designates native Codex review, the dispatched subagent's job is to locate and
+  run the OpenAI Codex plugin's companion script (`execute-plan`'s Codex plugin
+  review policy) and return the findings unedited — not a generic reviewer that
+  skips the plugin, and not the coordinator running the review command itself
+  instead of dispatching it. Only use a generic reviewer subagent when the calling
+  workflow names no code-quality reviewer at all.
 - Spec review always runs before quality review. Do not run quality review on a
   task that has not yet passed spec review.
 - A task is not done until both reviews return a passing verdict against the
@@ -134,27 +134,32 @@ calling workflow's code-quality review policy is before dispatching; do not
 default to a generic reviewer when the calling workflow names a specific one.
 
 **When the calling workflow designates native Codex review** (this is
-`execute-plan`'s default in Claude Code): dispatch a fresh subagent whose only
-instructions are to invoke the native Codex review harness on this task's isolated
-diff, using that workflow's pinned model and command, and return the harness's
-output unedited:
+`execute-plan`'s default in Claude Code): dispatch a fresh, Bash-capable subagent
+whose only instructions are to locate the OpenAI Codex plugin's companion script
+and run it against this task's isolated diff, per `execute-plan`'s Codex plugin
+review policy, and return its output unedited:
 
 ```text
 Agent({
-  subagent_type: "codex:<plugin-agent>",  // the platform's Codex plugin agent when
-                                          // installed, otherwise a project-defined
-                                          // codex-review agent
-  prompt: "Run exactly:\ncodex review -c 'model=\"gpt-5.6-sol\"' --uncommitted\n" +
-          "(or --base <ref-before-this-task> once committed)\n" +
-          "Return the command's output verbatim as the verdict. Do not summarize " +
-          "or edit it. Do not edit files.\n\n<references/quality-reviewer-brief.md>"
+  subagent_type: "general-purpose",  // Bash-capable; the review engine is the
+                                     // dispatched command below, not this agent
+  prompt: "Locate the OpenAI Codex plugin's companion script:\n" +
+          "companion=\"$(ls -d \"$HOME\"/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs 2>/dev/null | sort -V | tail -1)\"\n" +
+          "If empty, report CODEX_PLUGIN_UNAVAILABLE and stop.\n" +
+          "Otherwise run exactly:\n" +
+          "node \"$companion\" adversarial-review --wait --scope working-tree \"<task acceptance criteria>\"\n" +
+          "(or --base <ref-before-this-task> instead of --scope working-tree once the task's change is committed)\n" +
+          "Return the command's full output verbatim as the verdict. Do not " +
+          "summarize or edit it. Do not edit files.\n\n<references/quality-reviewer-brief.md>"
 })
 ```
 
-This preserves the native review engine and the pinned model while still giving
-the review a fresh, isolated dispatch with the same board-evidence contract as
-every other step in this loop — using a subagent and using the Codex harness are
-not competing choices.
+This is what makes "dispatch a subagent" and "use the Codex harness" the same
+instruction rather than competing choices: the subagent's entire job is to run the
+real review engine and hand back what it says, while still giving the review a
+fresh, isolated dispatch with the same board-evidence contract as every other step
+in this loop. There is no model-pinning flag on this command — the plugin's
+configured backend model is the review engine.
 
 **Only when the calling workflow designates no code-quality reviewer**, dispatch a
 generic reviewer subagent instead, whose own judgment is the review:
@@ -214,8 +219,8 @@ unresolved placeholders.
 - Every task ran through exactly one implementer subagent dispatch and a fresh
   spec reviewer dispatch.
 - The quality reviewer was a fresh `Agent` dispatch; when `execute-plan` requires
-  native Codex review, that subagent's job was to invoke the harness internally on
-  the pinned model and return its findings unedited.
+  native Codex review, that subagent's job was to locate and run the OpenAI Codex
+  plugin's companion script and return its findings unedited.
 - Every fix loop re-ran the specific review that raised the issue, not both
   reviews, and re-reviewed the latest revision.
 - The task board row carries dispatch evidence (`subagent_type` for each of the

@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Review PR
@@ -24,21 +24,41 @@ comments or apply accepted review changes with verification.
 
 ## Review engine policy
 
-Prefer native Codex review for code-quality findings. In Claude Code, the preferred
-interactive command is `/codex:review --base <ref> --wait`. Some installations mark
-the command user-only; ask the user to invoke it rather than claiming the workflow ran
-it. Use the slash command only after confirming the active Codex configuration selects
-`gpt-5.6-sol`; otherwise use the explicitly pinned CLI command below.
+Code-quality findings come from the official OpenAI Codex plugin for Claude Code
+([openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc)) — the same
+plugin `review-and-wrap-up-pr` uses. Not a bare `codex` CLI call, not an invented
+model-override flag, and not a generic Claude reviewer's own opinion.
 
-For autonomous review, run:
+**Prerequisite:** the plugin is installed and authenticated. Locate its runtime
+once:
 
 ```bash
-codex review -c 'model="gpt-5.6-sol"' --base <ref>
-codex review -c 'model="gpt-5.6-sol"' --uncommitted
+companion="$(ls -d "$HOME"/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs 2>/dev/null | sort -V | tail -1)"
 ```
 
-`gpt-5.6-sol` is the only GPT model allowed for this review path. If native Codex
-review is unavailable, report `CODEX_REVIEW_UNAVAILABLE`; use a strongest-available
+If nothing is found, report `CODEX_PLUGIN_UNAVAILABLE`. Have the user install it
+(`/plugin marketplace add openai/codex-plugin-cc`, then
+`/plugin install codex@openai-codex`) rather than falling back to a raw `codex`
+CLI call. Setup or auth errors route to `/codex:setup`.
+
+**Dispatch a fresh subagent** whose only job is to locate the companion script and
+run it — do not run the command directly in the coordinator's own shell:
+
+```bash
+node "$companion" adversarial-review --wait --base <ref> "<PR intent, boundary, and drift context>"
+# or, for uncommitted work:
+node "$companion" adversarial-review --wait --scope working-tree "<review brief>"
+```
+
+Use `adversarial-review`, not plain `review` — pass the intent, PR boundary, and
+spec drift context discovered in the procedure below as its focus text so the
+review isn't context-free. The subagent returns the report verbatim as the
+verdict; it does not summarize or edit it.
+
+There is no model-pinning flag on this command — only the companion's separate
+`task` command exposes `--model`. The plugin's configured backend model is the
+review engine here; do not invent a per-call override. If the plugin is
+unavailable, report `CODEX_PLUGIN_UNAVAILABLE`; use a strongest-available
 Anthropic reviewer only after the user accepts that downgrade.
 
 ## Procedure
@@ -56,8 +76,9 @@ Anthropic reviewer only after the user accepts that downgrade.
    - If no intent exists, infer from diff and state the assumption.
 3. Discover repo rules and verification commands before reviewing.
 4. Inspect the diff against the correct base.
-5. Run or ingest native Codex review using the policy above. Treat its output as review
-   evidence, not as permission to skip intent, boundary, or drift checks.
+5. Dispatch Codex plugin review using the policy above, passing the intent, PR
+   boundary, and spec drift context from steps 2-3 as focus text. Treat its output
+   as review evidence, not as permission to skip intent, boundary, or drift checks.
 6. Review in this order:
    - Correctness and user-visible behavior.
    - Spec or intent alignment.
@@ -120,15 +141,20 @@ Choose A to comment on the PR, or B to apply accepted changes.
 - Ignoring a PR boundary artifact and reviewing only the raw diff.
 - Ignoring a spec drift report or test strategy artifact.
 - Applying review fixes that change scope without re-running `spec-drift-check`.
-- Silently using a different GPT model when native Codex review requires
-  `gpt-5.6-sol`.
-- Treating native review output as a substitute for checking the source intent.
+- Running a raw `codex` CLI call, or inventing a model-override flag, instead of
+  dispatching the installed Codex plugin's companion script.
+- Running the companion script directly in the coordinator's shell instead of
+  dispatching a fresh subagent to run it.
+- Calling `review` when `adversarial-review` was needed to carry the discovered
+  intent/boundary/drift context as focus text.
+- Treating Codex plugin review output as a substitute for checking the source intent.
 
 ## Success criteria
 
 - The review uses the correct base and stated intent.
 - The review accounts for spec drift and test strategy artifacts when present.
-- Native Codex review used `gpt-5.6-sol`, or the report names an accepted downgrade.
+- Codex plugin review ran through a dispatched subagent with the intent/boundary/
+  drift context as focus text, or the report names an accepted downgrade.
 - Findings are severity-ranked and actionable.
 - Mode A produces comments ready for the PR.
 - Mode B applies only verified fixes and reports fresh evidence.

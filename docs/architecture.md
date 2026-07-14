@@ -93,8 +93,10 @@ Model routing:
 - Use the strongest available Anthropic model for plan authoring and plan review.
 - Use Claude Sonnet or a faster capable Anthropic model for decision-complete worker
   tasks; escalate only when task complexity requires it.
-- Use native Codex review with `gpt-5.6-sol` for code-quality review. Do not silently
-  substitute another GPT model.
+- Use native Codex review through the official OpenAI Codex plugin for code-quality
+  review — a dispatched subagent whose only job is to run the plugin's companion
+  script. Do not substitute a raw `codex` CLI call, an invented model-override
+  flag, or a generic reviewer's own opinion.
 
 ## Chaining model
 

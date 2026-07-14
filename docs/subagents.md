@@ -100,7 +100,8 @@ In Claude Code, prefer Anthropic models for coordinator and worker roles:
 - Strongest available Anthropic model for planning, architecture, and plan review.
 - Claude Sonnet for bounded implementation and integration work.
 - Faster Anthropic models only for narrow mechanical work with cheap verification.
-- Native Codex review with `gpt-5.6-sol` for code-quality review.
+- Native Codex review through the OpenAI Codex plugin's companion script,
+  dispatched as a fresh subagent, for code-quality review.
 
 Upgrade a worker only when reasoning capacity is the blocker. Add missing context when
 context is the blocker, and split the task when size is the blocker.
