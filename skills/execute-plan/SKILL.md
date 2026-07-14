@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Execute Plan
@@ -53,7 +53,7 @@ requirement checks, and verification:
 | Mechanical implementer | fast | Claude Sonnet or a faster capable Anthropic model |
 | Integration implementer | balanced | Claude Sonnet; escalate to strongest Anthropic model when needed |
 | Requirement checker | strongest available | strongest Anthropic model with fresh context |
-| Code-quality reviewer | native Codex review | `gpt-5.6-sol` only |
+| Code-quality reviewer | `codex-review` with fresh context | Codex plugin agent on `gpt-5.6-sol` only |
 
 Model rules:
 
@@ -102,8 +102,8 @@ Model rules:
 11. Continue through ready tasks without asking permission between tasks. Stop only
     for an unresolved blocker, material ambiguity, or user decision.
 12. Run `spec-drift-check` after all tasks land and before branch readiness review.
-13. Run `review-pr` using the native Codex review policy after unresolved Critical or Important
-    drift is fixed or explicitly accepted.
+13. Run `review-pr`, which must call `codex-review`, after unresolved Critical or
+    Important drift is fixed or explicitly accepted.
 14. Use `verification-gate` before any completion, commit, push, or PR claim.
 
 ## Task board contract
@@ -152,31 +152,19 @@ the worker summary. All requirement drift blocks task acceptance. Critical and
 Important quality findings block acceptance; Minor findings may be recorded for the
 final review.
 
-## Native Codex review policy
+## Automatic Codex review policy
 
-Use native Codex review for code-quality review, with `gpt-5.6-sol` as the only GPT
-review model:
+**REQUIRED SUB-SKILL:** Use `codex-review` for code-quality review.
 
-1. In Claude Code, prefer `/codex:review --base <ref> --wait` for the integrated
-   branch only after confirming the active Codex configuration selects
-   `gpt-5.6-sol`. This command may be user-only; if so, ask the user to invoke it and
-   do not pretend the workflow called it. If the model cannot be confirmed, use the
-   explicitly pinned CLI path below.
-2. For autonomous review, run one of:
+In Claude Code, `codex-review` must dispatch the OpenAI Codex plugin agent
+`codex:codex-rescue` automatically with a fresh, read-only brief and
+`--model gpt-5.6-sol`. Do not ask the user to invoke `/codex:review`, and do not run
+`codex review` through Bash. Either action leaves the review gate unsatisfied.
 
-   ```bash
-   codex review -c 'model="gpt-5.6-sol"' --base <ref>
-   codex review -c 'model="gpt-5.6-sol"' --uncommitted
-   ```
-
-3. When the platform exposes reviewer subagents but not the command or CLI, dispatch
-   a fresh reviewer with `gpt-5.6-sol`.
-4. If `gpt-5.6-sol` is unavailable, report `CODEX_REVIEW_UNAVAILABLE`. Do not silently
-   downgrade to another GPT model. Use an Anthropic fallback reviewer only after the
-   user accepts the downgrade.
-
-Run task-scoped native review only when the task has an isolated diff, commit, or
-worktree boundary. Always run one final native Codex review over the integrated change.
+Run task-scoped Codex review only when the task has an isolated diff, commit, or
+worktree boundary. Always run one final `codex-review` over the integrated change.
+If the required plugin agent or model is unavailable, report
+`CODEX_PLUGIN_REVIEW_UNAVAILABLE` and stop before a readiness claim.
 
 ## Parallelization rules
 
@@ -219,8 +207,11 @@ does not mean main-thread implementation; dispatch one worker task at a time.
   briefs.
 - Accepting a worker report without inspecting diff and evidence.
 - Starting quality review before spec review.
-- Using another GPT model when `gpt-5.6-sol` was required for native Codex review.
-- Claiming `/codex:review` was invoked when the host requires the user to run it.
+- Running `codex review` through Bash instead of dispatching the Claude Code Codex
+  plugin agent.
+- Asking the user to run `/codex:review` instead of completing the automatic plugin
+  dispatch.
+- Using another GPT model when `gpt-5.6-sol` was required for Codex review.
 - Claiming completion before a whole-branch verification gate.
 - Executing directly from a broad design when a concrete implementation plan is needed.
 - Executing a plan with unresolved Critical or Important plan-review findings.
@@ -236,8 +227,8 @@ does not mean main-thread implementation; dispatch one worker task at a time.
 - Worker models matched task complexity and were escalated only with a recorded reason.
 - Parallel tasks are conflict-safe or isolated.
 - Every accepted task has review evidence and verification evidence.
-- The integrated change has native Codex review evidence from `gpt-5.6-sol`, or an
-  explicit accepted downgrade.
+- The integrated change has `codex-review` evidence from an automatic plugin dispatch
+  on `gpt-5.6-sol`.
 - The final branch has a spec drift report.
 - The final branch has a `review-pr` whole-branch review.
 - The whole change passes a final verification gate.

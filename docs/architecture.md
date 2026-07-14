@@ -53,6 +53,7 @@ small and focused.
 
 Examples:
 
+- `codex-review`
 - `context-briefing`
 - `verification-gate`
 
@@ -69,6 +70,7 @@ design-feature
               -> parallel-safe subagents
            -> spec-drift-check
               -> review-pr
+                 -> codex-review
                  -> verification-gate
 ```
 
@@ -79,6 +81,8 @@ Hard gates:
 - Parallel subagents are dispatched only from `execute-plan`, only with
   `context-briefing`, and only for independent tasks.
 - `review-pr` follows `spec-drift-check` in the happy path.
+- In Claude Code, `codex-review` dispatches the OpenAI Codex plugin agent; direct CLI
+  review does not satisfy the gate.
 - `verification-gate` precedes every completion, ready, fixed, commit, push, or PR
   claim.
 
@@ -89,8 +93,9 @@ Model routing:
 - Use the strongest available Anthropic model for plan authoring and plan review.
 - Use Claude Sonnet or a faster capable Anthropic model for decision-complete worker
   tasks; escalate only when task complexity requires it.
-- Use native Codex review with `gpt-5.6-sol` for code-quality review. Do not silently
-  substitute another GPT model.
+- Use `codex-review` with the Claude Code OpenAI Codex plugin agent and
+  `gpt-5.6-sol` for code-quality review. Do not silently substitute another model or
+  direct CLI transport.
 
 ## Chaining model
 
@@ -135,8 +140,12 @@ spec-drift-check
   -> review-pr, when no Critical or Important drift remains
 
 review-pr
+  -> codex-review, for an automatic independent code-quality pass
   -> verification-gate, before saying findings are fixed or ready
   -> context-briefing, when delegating review or fix tasks
+
+codex-review
+  -> context-briefing, to create the bounded review prompt
 ```
 
 Skill bodies must remain useful when installed alone. Top-level docs provide deeper
@@ -173,6 +182,7 @@ Durable artifacts:
 - Spec drift reports.
 - Task briefs.
 - Review reports.
+- Review transport, model, target, and verdict evidence.
 - Verification evidence.
 
 Do not give every subagent the full conversation. Give each worker the smallest
@@ -189,7 +199,8 @@ coordinator must inspect the result and run a gate:
    for PRs?
 4. Spec drift: does the implemented branch still match the agreed artifacts?
 5. Spec review: does the change satisfy the source artifact without extra scope?
-6. Quality review: is it maintainable, idiomatic, and safe?
+6. Codex quality review: did the required independent plugin review inspect the
+   integrated target with fresh context?
 7. Verification: what fresh evidence proves the accepted claim?
 
 Critical and Important findings must be addressed or explicitly rejected with a

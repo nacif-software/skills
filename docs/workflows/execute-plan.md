@@ -12,7 +12,8 @@ the platform supports delegation.
 
 In Claude Code, prefer Anthropic models for planning and implementation. Use the
 strongest available Anthropic model for plan-level judgment, Claude Sonnet for most
-bounded workers, and native Codex review with `gpt-5.6-sol` for code-quality review.
+bounded workers, and `codex-review` through the OpenAI Codex plugin agent with
+`gpt-5.6-sol` for code-quality review.
 
 ## Flow
 
@@ -74,9 +75,9 @@ tasks, and return faulty decisions to planning.
 
 Each task passes an independent requirement check. When a task-scoped diff exists, it
 also receives code-quality review before acceptance. The integrated change always
-receives native Codex review with `gpt-5.6-sol`; in Claude Code, prefer
-`/codex:review --base <ref> --wait` only when the active Codex configuration confirms
-that model, and use the explicitly pinned `codex review` CLI fallback otherwise.
+receives `codex-review` with `gpt-5.6-sol`. In Claude Code, that skill dispatches the
+OpenAI Codex plugin agent automatically with a fresh, read-only review brief. Direct
+CLI review and asking the user to invoke `/codex:review` do not satisfy the gate.
 
 ## Parallel safety
 

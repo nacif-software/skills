@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Verification Gate
@@ -42,7 +42,12 @@ If the check fails, say what failed and stop making the stronger claim.
 | Review finding fixed | Diff plus targeted verification for that finding |
 | Bug fixed | Reproduction no longer fails and regression check exists where practical |
 | Requirements met | Requirement-by-requirement checklist against the source artifact |
+| Codex review passed in Claude Code | Actual `codex:codex-rescue` Agent dispatch, pinned model, target, and verdict from `codex-review` |
 | Ready for PR | Drift check, review, verification, and known risks summarized |
+
+When an upstream workflow requires `codex-review`, raw Bash `codex review`, a request
+for the user to run `/codex:review`, or the plugin Stop hook is not valid review
+evidence.
 
 ## Red flags
 
@@ -60,6 +65,7 @@ All of these mean: run the gate before making the claim.
 - Running a partial check and implying a full check passed.
 - Treating formatting or linting as proof that behavior works.
 - Treating passing tests as proof that the branch still matches the spec.
+- Treating direct CLI output as proof that a required Claude Code plugin review ran.
 - Trusting generated output without reading it.
 - Skipping verification because the change seems small.
 

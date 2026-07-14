@@ -8,11 +8,11 @@ diffs. It supports two modes:
 - Mode A: prepare or post PR review comments.
 - Mode B: apply accepted review changes and verify them.
 
-For code-quality review, prefer native Codex review with `gpt-5.6-sol`. In Claude
-Code, use `/codex:review --base <ref> --wait` when the user-invoked command is
-available and active Codex configuration selects that model; otherwise use
-`codex review` with an explicit model override. Do not silently substitute another
-GPT model.
+For code-quality review, use `codex-review` with `gpt-5.6-sol`. In Claude Code, that
+skill automatically dispatches the OpenAI Codex plugin agent with a fresh, read-only
+brief containing this workflow's target, intent, artifacts, priorities, and output
+contract. Direct CLI review, the user-only `/codex:review` command, and the plugin
+Stop hook do not satisfy the whole-branch gate.
 
 ## Flow
 
@@ -23,6 +23,8 @@ review request
   -> read or request spec-drift-check for planned feature work
   -> discover repo rules and verification commands
   -> inspect diff
+  -> codex-review plugin agent
+  -> validate Codex findings against intent and artifacts
   -> report findings by severity
   -> ask mode
      -> A: comment review to PR

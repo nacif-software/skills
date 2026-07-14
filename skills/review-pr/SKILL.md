@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Review PR
@@ -24,22 +24,21 @@ comments or apply accepted review changes with verification.
 
 ## Review engine policy
 
-Prefer native Codex review for code-quality findings. In Claude Code, the preferred
-interactive command is `/codex:review --base <ref> --wait`. Some installations mark
-the command user-only; ask the user to invoke it rather than claiming the workflow ran
-it. Use the slash command only after confirming the active Codex configuration selects
-`gpt-5.6-sol`; otherwise use the explicitly pinned CLI command below.
+**REQUIRED SUB-SKILL:** Use `codex-review` for code-quality findings.
 
-For autonomous review, run:
+In Claude Code, `codex-review` must automatically dispatch the OpenAI Codex plugin
+agent `codex:codex-rescue` with fresh context, a read-only review brief, and
+`gpt-5.6-sol`. Raw Bash `codex review`, a user-requested `/codex:review`, a generic
+Claude reviewer, or the Stop hook does not satisfy this gate.
 
-```bash
-codex review -c 'model="gpt-5.6-sol"' --base <ref>
-codex review -c 'model="gpt-5.6-sol"' --uncommitted
-```
+The concrete Claude Code dispatch is the Agent tool with
+`subagent_type: "codex:codex-rescue"`. Its prompt starts with the exact line
+`--fresh --wait --model gpt-5.6-sol`, followed by the `codex-review` brief. Do not
+replace this with a generic Task or Agent type.
 
-`gpt-5.6-sol` is the only GPT model allowed for this review path. If native Codex
-review is unavailable, report `CODEX_REVIEW_UNAVAILABLE`; use a strongest-available
-Anthropic reviewer only after the user accepts that downgrade.
+If the plugin agent or required model is unavailable, report
+`CODEX_PLUGIN_REVIEW_UNAVAILABLE` and leave the review blocked. Do not silently
+downgrade.
 
 ## Procedure
 
@@ -56,8 +55,8 @@ Anthropic reviewer only after the user accepts that downgrade.
    - If no intent exists, infer from diff and state the assumption.
 3. Discover repo rules and verification commands before reviewing.
 4. Inspect the diff against the correct base.
-5. Run or ingest native Codex review using the policy above. Treat its output as review
-   evidence, not as permission to skip intent, boundary, or drift checks.
+5. Call `codex-review` using the policy above. Treat its output as review evidence,
+   not as permission to skip intent, boundary, or drift checks.
 6. Review in this order:
    - Correctness and user-visible behavior.
    - Spec or intent alignment.
@@ -120,15 +119,17 @@ Choose A to comment on the PR, or B to apply accepted changes.
 - Ignoring a PR boundary artifact and reviewing only the raw diff.
 - Ignoring a spec drift report or test strategy artifact.
 - Applying review fixes that change scope without re-running `spec-drift-check`.
-- Silently using a different GPT model when native Codex review requires
+- Silently using a different GPT model when Codex review requires
   `gpt-5.6-sol`.
-- Treating native review output as a substitute for checking the source intent.
+- Running raw `codex review` instead of the Claude Code plugin agent.
+- Asking the user to invoke `/codex:review` during an autonomous workflow.
+- Treating Codex review output as a substitute for checking the source intent.
 
 ## Success criteria
 
 - The review uses the correct base and stated intent.
 - The review accounts for spec drift and test strategy artifacts when present.
-- Native Codex review used `gpt-5.6-sol`, or the report names an accepted downgrade.
+- `codex-review` records an automatic plugin dispatch on `gpt-5.6-sol`.
 - Findings are severity-ranked and actionable.
 - Mode A produces comments ready for the PR.
 - Mode B applies only verified fixes and reports fresh evidence.
