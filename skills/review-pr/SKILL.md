@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # Review PR
@@ -67,6 +67,9 @@ Anthropic reviewer only after the user accepts that downgrade.
    - PR URL/number if provided.
    - Otherwise base branch and current branch.
    - If unclear, inspect git remotes and branch state before asking.
+   - When called from `execute-plan` for a PR-boundary group's own PR (not the
+     final whole-branch pass), scope this review to that group's diff, not the
+     entire plan's accumulated changes.
 2. Discover intent:
    - Read PR description, linked issue/spec, commits, or local design docs.
    - Read test strategy and spec drift report when present.

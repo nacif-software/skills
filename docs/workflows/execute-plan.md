@@ -15,8 +15,10 @@ attention.
 
 In Claude Code, prefer Anthropic models for planning and implementation. Use the
 strongest available Anthropic model for plan-level judgment, Claude Sonnet for most
-bounded workers, and native Codex review through the OpenAI Codex plugin —
-dispatched as a fresh subagent — for code-quality review.
+bounded workers including the per-task spec reviewer, and native Codex review
+through the OpenAI Codex plugin — dispatched as a fresh subagent on the
+fastest/cheapest available model, since the dispatch does no reasoning of its own —
+for code-quality review, run once per PR-boundary group rather than once per task.
 
 ## Flow
 
@@ -29,9 +31,10 @@ reviewed implementation plan
   -> split tasks
   -> classify parallel safety
   -> create minimal task briefs
-  -> task-dispatch-loop, in parallel or sequentially per task
-  -> read back dispatch evidence and review verdicts
-  -> fix or reassign findings that task-dispatch-loop escalated
+  -> task-dispatch-loop, in parallel or sequentially per task (implement + spec review)
+  -> read back dispatch evidence and spec-review verdicts
+  -> checkpoint Codex review once a PR-boundary group's tasks are all spec-approved
+  -> fix or reassign findings that task-dispatch-loop or the checkpoint escalated
   -> spec-drift-check
   -> review-pr whole-branch review
   -> verification gate
@@ -60,11 +63,14 @@ Before edits, create a visible task board with:
 - Worker brief summary or path.
 - Owned files.
 - Dependencies.
+- PR-boundary group.
 - Parallel or sequential mode.
 - Dispatch evidence: the concrete subagent mechanism used and confirmation it fired.
 - Worker status.
 - Verification evidence.
-- Review status.
+- Spec-review status.
+- Quality-review status: deferred to checkpoint, checkpoint passed, or skipped as
+  mechanical/low-risk.
 - Worker model or capability tier.
 
 Every implementation-plan task should map to one board row and one worker brief.
@@ -74,17 +80,22 @@ delegation — see `docs/subagents.md` for the dispatch call contract.
 
 ## Worker and review loop
 
-`task-dispatch-loop` runs each task through implementer dispatch, spec review,
-quality review, and the fix/re-review loop between them. Worker status routes the
-next action inside that loop; it never accepts the task by itself. That loop adds
+`task-dispatch-loop` runs each task through implementer dispatch, spec review, and
+the fix/re-review loop between them — nothing else. Worker status routes the next
+action inside that loop; it never accepts the task by itself. That loop adds
 context for `NEEDS_CONTEXT`, upgrades only when capability is the blocker, splits
 oversized tasks, and escalates faulty plan decisions back to this coordinator
 instead of guessing.
 
-The integrated change always receives native Codex review through the OpenAI Codex
-plugin; in Claude Code, that means dispatching a fresh subagent to locate and run
-the plugin's companion script (`codex-companion.mjs`) — the same mechanism
-`review-and-wrap-up-pr` uses — not a raw `codex` CLI call.
+Code-quality review is not part of that loop. It runs once per PR-boundary group,
+at the point every task in that group is spec-approved, and once more over the
+whole integrated branch at the end. Both use native Codex review through the
+OpenAI Codex plugin: dispatching a fresh subagent to locate and run the plugin's
+companion script (`codex-companion.mjs`) — the same mechanism `review-and-wrap-up-pr`
+uses — not a raw `codex` CLI call. Running Codex once per task instead of once per
+group is what turns an 18-task plan into 60-80 review calls; batching to the
+PR-boundary group, and skipping the checkpoint entirely for mechanical-only,
+low-risk groups, keeps review volume proportional to risk instead of task count.
 
 ## Parallel safety
 
@@ -110,10 +121,10 @@ If no subagent mechanism exists, the coordinator should stop before edits, repor
 
 ## Review gates
 
-Every task must pass two checks before acceptance:
-
-1. Spec review: the task matches the source artifact and does not expand scope.
-2. Quality review: the task is maintainable, idiomatic, and verified.
+Every task passes spec review before acceptance: the task matches the source
+artifact and does not expand scope. Quality review — is the code maintainable,
+idiomatic, and verified — runs once per PR-boundary group and once over the whole
+branch, not once per task.
 
 Critical and Important findings must be fixed or explicitly rejected with a reason.
 
