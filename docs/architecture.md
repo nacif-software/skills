@@ -67,7 +67,8 @@ design-feature
      -> review-plan
         -> execute-plan
            -> context-briefing
-              -> task-dispatch-loop, one instance per task
+              -> task-dispatch-loop, one instance per task (implement + spec review)
+           -> checkpoint Codex review, once per PR-boundary group
            -> spec-drift-check
               -> review-pr
                  -> verification-gate
@@ -82,6 +83,9 @@ Hard gates:
   tasks.
 - Every `task-dispatch-loop` instance dispatches its implementer through a literal,
   named subagent call; a drafted brief that never fired is not delegation.
+- `task-dispatch-loop` runs implementation and spec review only. Code-quality
+  (Codex plugin) review runs once per PR-boundary group at `execute-plan`'s
+  checkpoint step, never once per task — see decision 0008.
 - `review-pr` follows `spec-drift-check` in the happy path.
 - `verification-gate` precedes every completion, ready, fixed, commit, push, or PR
   claim.
@@ -92,11 +96,13 @@ Model routing:
   requirement checks, and verification.
 - Use the strongest available Anthropic model for plan authoring and plan review.
 - Use Claude Sonnet or a faster capable Anthropic model for decision-complete worker
-  tasks; escalate only when task complexity requires it.
+  tasks, including the per-task spec reviewer; escalate only when task complexity
+  requires it.
 - Use native Codex review through the official OpenAI Codex plugin for code-quality
   review — a dispatched subagent whose only job is to run the plugin's companion
   script. Do not substitute a raw `codex` CLI call, an invented model-override
-  flag, or a generic reviewer's own opinion.
+  flag, or a generic reviewer's own opinion. That dispatch subagent itself needs no
+  reasoning capability — use the fastest/cheapest available model for it.
 
 ## Chaining model
 
@@ -200,7 +206,11 @@ coordinator must inspect the result and run a gate:
    for PRs?
 4. Spec drift: does the implemented branch still match the agreed artifacts?
 5. Spec review: does the change satisfy the source artifact without extra scope?
-6. Quality review: is it maintainable, idiomatic, and safe?
+   Runs per task, immediately.
+6. Quality review: is it maintainable, idiomatic, and safe? Runs once per
+   PR-boundary group (not once per task) plus once over the whole branch —
+   batched findings, tier-gated, to keep review volume proportional to risk
+   rather than to task count.
 7. Verification: what fresh evidence proves the accepted claim?
 
 Critical and Important findings must be addressed or explicitly rejected with a

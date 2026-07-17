@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.5.0"
+  version: "0.6.0"
 ---
 
 # Execute Plan
@@ -15,9 +15,15 @@ metadata:
 
 Coordinate an approved or reviewed plan through bounded tasks, minimal context
 briefs, review gates, and fresh verification. This skill owns the task board,
-task splitting, PR boundary, spec drift, whole-branch review, and the final
-verification gate. It does not implement tasks itself and does not run the
-per-task implement/review loop directly — that loop is `task-dispatch-loop`.
+task splitting, PR boundary, spec drift, checkpoint and whole-branch code-quality
+review, and the final verification gate. It does not implement tasks itself and
+does not run the per-task implement/spec-review loop directly — that loop is
+`task-dispatch-loop`.
+
+Code-quality review (native Codex review) runs **once per PR-boundary group**, not
+once per task. Running it after every task turns an 18-task plan into 60-80 review
+calls and days of latency for no proportional safety gain; see "Quality-review
+cadence" below.
 
 ## When to use
 
@@ -34,8 +40,11 @@ per-task implement/review loop directly — that loop is `task-dispatch-loop`.
 - Do not silently implement a reviewed plan in the main thread.
 - Create a visible task board before any code edits.
 - **REQUIRED SUB-SKILL:** Use `task-dispatch-loop` to run every task's
-  implement/spec-review/quality-review/fix loop. Do not re-implement that loop
-  inline in this skill's procedure.
+  implement/spec-review/fix loop. Do not re-implement that loop inline in this
+  skill's procedure, and do not add code-quality review back into it — that
+  belongs to this skill's checkpoint step, not the per-task loop.
+- Run one code-quality (Codex plugin) review per PR-boundary group, at the point
+  that group's tasks all pass spec review — not once per task.
 - Dispatch at least one worker subagent for planned implementation when the platform
   supports subagents, even if tasks must run sequentially.
 - Dispatch independent tasks in parallel when conflict-safe.
@@ -59,8 +68,10 @@ requirement checks, and verification:
 | Plan author or architecture decision | strongest available | strongest Anthropic model |
 | Mechanical implementer | fast | Claude Sonnet or a faster capable Anthropic model |
 | Integration implementer | balanced | Claude Sonnet; escalate to strongest Anthropic model when needed |
+| Spec reviewer (per task, via `task-dispatch-loop`) | fast | Claude Sonnet or a faster capable Anthropic model |
 | Requirement checker | strongest available | strongest Anthropic model with fresh context |
-| Code-quality reviewer | native Codex review via the OpenAI Codex plugin | plugin-managed model — no per-call override exists |
+| Codex-dispatch subagent (per checkpoint) | no reasoning needed | fastest/cheapest available model — its only job is to run one command and relay output verbatim |
+| Code-quality reviewer (once per PR-boundary group) | native Codex review via the OpenAI Codex plugin | plugin-managed model — no per-call override exists |
 
 Model rules:
 
@@ -69,6 +80,11 @@ Model rules:
   available.
 - Do not let a fast worker invent architecture. Return the decision to planning or
   escalate the task.
+- Do not use the strongest model for the spec reviewer or the Codex-dispatch
+  subagent. Neither makes an architecture decision: the spec reviewer checks a
+  diff against acceptance criteria, and the Codex-dispatch subagent only shells
+  out to a command and returns its output — spend tokens on the plan and the
+  requirement checker, not on these two.
 - For code-quality review, do not substitute a generic Claude reviewer, a raw
   `codex` CLI call, or an invented model-override flag for the installed Codex
   plugin's own review command. See "Codex plugin review policy" below.
@@ -102,35 +118,46 @@ Model rules:
    - Sequential tasks: run one task's loop to completion before starting the next.
    - Single planned task: still run it through `task-dispatch-loop` instead of
      implementing in the main thread when subagents are available.
+   - `task-dispatch-loop` covers implementation and spec review only. It does not
+     run code-quality review.
 8. Read what `task-dispatch-loop` reports back for each task: dispatch evidence
-   (`subagent_type`, confirmed call), the implementer's final status, and both
-   review verdicts. Do not mark a board row done on a status label alone.
+   (`subagent_type`, confirmed call) and the spec-review verdict. Do not mark a
+   board row done on a status label alone.
 9. Continue through ready tasks without asking permission between tasks. Stop only
    for an unresolved blocker, material ambiguity, or user decision that
    `task-dispatch-loop` escalated back.
-10. Run `spec-drift-check` after all tasks land and before branch readiness review.
-11. Run `review-pr` using the native Codex review policy after unresolved Critical or Important
-    drift is fixed or explicitly accepted.
-12. Use `verification-gate` before any completion, commit, push, or PR claim.
+10. When every task in a PR-boundary group has passed spec review, run that
+    group's checkpoint under "Quality-review cadence" below before moving to the
+    next group or, for the last group, before branch readiness review.
+11. Run `spec-drift-check` for each group's scope once its checkpoint clears, and
+    again for the whole branch before the final `review-pr` pass.
+12. Run `review-pr` using the native Codex review policy for each PR-boundary
+    group's own PR when that group is ready, and once more for the whole branch
+    after unresolved Critical or Important drift is fixed or explicitly accepted.
+13. Use `verification-gate` before any completion, commit, push, or PR claim.
 
 ## Task board contract
 
 The board must exist before edits and stay updated as work progresses.
 
 ```markdown
-| ID | Task | Worker | Model | Files | Depends on | Mode | Dispatch | Status | Evidence | Review |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| T1 | <task name> | <brief path or summary> | <model/tier> | <owned files> | <none/T#> | parallel/sequential | <subagent_type, confirmed fired> | pending/in progress/done/blocked | <command/result> | requirement pending/quality pending/accepted |
+| ID | Task | Worker | Model | Files | Depends on | PR group | Mode | Dispatch | Status | Spec review | Quality review |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| T1 | <task name> | <brief path or summary> | <model/tier> | <owned files> | <none/T#> | <group id> | parallel/sequential | <subagent_type, confirmed fired> | pending/in progress/done/blocked | pending/passed | deferred to checkpoint / <checkpoint id> passed / skipped, low-risk |
 ```
 
 Board rules:
 
 - Every task from the implementation plan appears on the board.
 - Each board row maps to one worker brief.
-- Each board row records the chosen worker model or capability tier.
+- Each board row records the chosen worker model or capability tier and its
+  PR-boundary group.
 - Each board row's Dispatch column records the `subagent_type` used and confirms an
   actual `Agent` tool call fired for that task. A row cannot move past `pending`
   without this.
+- The Quality review column starts as "deferred to checkpoint" for every task and
+  only changes once that task's PR-boundary group's checkpoint runs (see
+  "Quality-review cadence"). It never gets Codex evidence from a per-task dispatch.
 - Main-thread work is limited to coordination, brief writing, integration, review, and
   verification unless `NO_DELEGATION_AVAILABLE` is acknowledged.
 - Status changes only after reading worker output and verification evidence.
@@ -138,13 +165,62 @@ Board rules:
 ## Worker status and per-task review
 
 `task-dispatch-loop` owns the implementer dispatch, worker status routing
-(`DONE` / `DONE_WITH_CONCERNS` / `NEEDS_CONTEXT` / `BLOCKED`), the spec-review-then-
-quality-review order, and the fix/re-review loop for each task. This skill's job is
-to read back what that loop reports — dispatch evidence and both review verdicts —
-and decide whether the task board row can move to done, not to re-run that logic
-here. If `task-dispatch-loop` escalates a blocker it could not resolve (a faulty
-plan assumption, a missing decision, an unavailable model), treat it the same as
-any other blocked task: fix the plan, supply the missing decision, or ask the user.
+(`DONE` / `DONE_WITH_CONCERNS` / `NEEDS_CONTEXT` / `BLOCKED`), and the spec-review
+fix/re-review loop for each task. This skill's job is to read back what that loop
+reports — dispatch evidence and the spec-review verdict — and decide whether the
+task board row can move to done, not to re-run that logic here. If
+`task-dispatch-loop` escalates a blocker it could not resolve (a faulty plan
+assumption, a missing decision, an unavailable model), treat it the same as any
+other blocked task: fix the plan, supply the missing decision, or ask the user.
+
+## Quality-review cadence
+
+Code-quality review is a checkpoint concern, not a per-task one. Run it once per
+PR-boundary group, when every task in that group has passed spec review — never
+inside `task-dispatch-loop`, and never once per task.
+
+**Why:** a task-scoped Codex dispatch per task, with a fix-and-re-review cycle per
+individual finding, turns a plan with N tasks into roughly 2-4×N Codex calls. For
+an 18-task feature that is 40-80 calls, and each one takes real wall-clock minutes
+— the difference between a same-day feature and one that spans days. Batching to
+one pass per PR-boundary group, with all findings from that pass fixed together
+before a single re-review, cuts this to roughly 1-2 calls per group.
+
+**Tier gating — skip the checkpoint entirely when it is not needed:**
+
+- If every task in the group is `mechanical` tier (per `plan-implementation`'s
+  worker-tier classification) and none touches a shared interface, migration,
+  auth/security path, or other risk area named in `test-strategy`, skip this
+  group's checkpoint. Record on the board: "Checkpoint skipped: group is
+  mechanical/low-risk; quality-reviewed only by the final whole-branch
+  `review-pr` pass." This is a recorded decision, not a silent omission — the
+  group is still quality-reviewed once, at the final whole-branch pass.
+- If the group contains any `integration` or `judgment` tier task, or touches a
+  risk area named above, run the checkpoint.
+- A plan with a single PR-boundary group (the common case — most features land as
+  one PR) has exactly one checkpoint, which is the same pass `review-pr` already
+  runs at the end. Do not run a redundant mid-flight checkpoint for a single-PR
+  plan; let the final `review-pr` pass be the one and only Codex review.
+- A plan with multiple PR-boundary groups (stacked or separate PRs) runs one
+  checkpoint per group, at the point that group's PR is ready — not just once at
+  the very end of the whole plan.
+
+**When a checkpoint runs:**
+
+1. Confirm every task in the group shows spec review "passed" on the board.
+2. Build one checkpoint brief from `references/quality-reviewer-brief.md`, scoped
+   to the group's accumulated diff (not one task), listing every task ID it
+   covers.
+3. Dispatch it via the Codex plugin review policy below — one `adversarial-review`
+   call over the group's diff, with the checkpoint brief as focus text.
+4. Read all findings from that single pass together. Route each finding to the
+   task ID it names; if several tasks in the group need fixes, dispatch each
+   owning task's implementer once, in parallel if their fixes are conflict-safe.
+5. After all fixes land, run exactly one re-review of the group's diff — not one
+   re-review per finding. Repeat steps 4-5 only if the re-review surfaces new
+   Critical/Important findings.
+6. Once no Critical or Important findings remain, mark every task in the group
+   "quality review: `<checkpoint id>` passed" on the board.
 
 ## Codex plugin review policy
 
@@ -190,13 +266,11 @@ invent a per-call override.
 If the plugin is unavailable, report `CODEX_PLUGIN_UNAVAILABLE`. Use an
 Anthropic fallback reviewer only after the user accepts that downgrade.
 
-Run task-scoped review only when the task has an isolated diff, commit, or
-worktree boundary. `task-dispatch-loop` is what actually invokes this policy per
-task, as its quality-review step — it must dispatch the review this way whenever
-this policy applies; it must not substitute a generic reviewer that skips the
-Codex harness, and it must not run the command directly instead of dispatching
-it. Always run one final Codex plugin review over the integrated change via
-`review-pr`.
+Dispatch this policy from the checkpoint step above, scoped to a PR-boundary
+group's accumulated diff — never from inside `task-dispatch-loop`, and never once
+per task. `task-dispatch-loop` does not invoke this policy at all. Always run one
+final Codex plugin review over the whole integrated branch via `review-pr`, in
+addition to any interim checkpoints for earlier PR-boundary groups.
 
 ## Parallelization rules
 
@@ -231,13 +305,23 @@ time instead.
 
 - Dispatching agents in parallel because tasks look small, not because they are independent.
 - Implementing planned tasks in the main thread while subagents are available.
-- Re-implementing the dispatch/review/fix loop inline instead of using
+- Re-implementing the dispatch/spec-review/fix loop inline instead of using
   `task-dispatch-loop`.
+- Adding a code-quality or Codex dispatch back into `task-dispatch-loop` instead of
+  running it once per PR-boundary group at the checkpoint.
+- Running a checkpoint after every task instead of after every PR-boundary group —
+  this is the exact review-volume problem checkpointing exists to avoid.
+- Fixing checkpoint findings one at a time with a re-review after each, instead of
+  batching all findings from one pass into one fix round and one re-review.
+- Skipping a checkpoint for a group that contains an integration/judgment task or a
+  named risk area, or skipping it silently instead of recording the skip decision.
 - Marking a board row done because `task-dispatch-loop` returned, without reading
-  its dispatch evidence and review verdicts.
+  its dispatch evidence and spec-review verdict.
 - Starting edits before creating the task board.
 - Treating sequential tasks as an excuse to skip worker delegation.
-- Giving every task the strongest model instead of using the plan to lower execution cost.
+- Giving every task the strongest model instead of using the plan to lower
+  execution cost, or using the strongest model for the spec reviewer or the
+  Codex-dispatch subagent, which need none of that reasoning capacity.
 - Passing the entire conversation instead of a brief.
 - Omitting the test-strategy rows, PR boundary, or plan-review findings from task
   briefs.
@@ -256,14 +340,19 @@ time instead.
 
 - Each task has clear ownership, acceptance criteria, and verification.
 - The task board was created before implementation and stayed current.
-- Every planned task ran through `task-dispatch-loop` rather than being
-  implemented inline.
+- Every planned task ran through `task-dispatch-loop` (implement + spec review)
+  rather than being implemented inline.
 - Every board row carries the `subagent_type` and confirmation that the `Agent`
-  tool call actually fired, plus both review verdicts from `task-dispatch-loop`.
-- Worker models matched task complexity and were escalated only with a recorded reason.
+  tool call actually fired, plus the spec-review verdict from `task-dispatch-loop`.
+- Code-quality review ran once per PR-boundary group, not once per task, with a
+  recorded reason when a group's checkpoint was tier-gated as unnecessary.
+- Each checkpoint batched its findings into one fix round and one re-review.
+- Worker models matched task complexity and were escalated only with a recorded
+  reason; the spec reviewer and Codex-dispatch subagent used fast/cheap models.
 - Parallel tasks are conflict-safe or isolated.
 - The integrated change has Codex plugin review evidence (dispatched subagent,
-  companion script transport, target, verdict), or an explicit accepted downgrade.
+  companion script transport, target, verdict) from at least the final
+  whole-branch pass, or an explicit accepted downgrade.
 - The final branch has a spec drift report.
 - The final branch has a `review-pr` whole-branch review.
 - The whole change passes a final verification gate.

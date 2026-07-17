@@ -11,7 +11,9 @@ diffs. It supports two modes:
 For code-quality review, dispatch a fresh subagent to run the official OpenAI
 Codex plugin's companion script (`codex-companion.mjs`) — the same mechanism
 `review-and-wrap-up-pr` uses. Do not substitute a raw `codex` CLI call, an
-invented model-override flag, or a generic reviewer's own opinion.
+invented model-override flag, or a generic reviewer's own opinion. When
+`execute-plan` calls this workflow for one PR-boundary group's own PR rather than
+the final whole-branch pass, scope the review to that group's diff.
 
 ## Flow
 
