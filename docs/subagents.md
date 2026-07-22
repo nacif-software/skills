@@ -11,6 +11,7 @@ invent shared contracts at the same time.
 The coordinator keeps:
 
 - Full user conversation.
+- Product brief when one exists.
 - Design doc and decision map.
 - Implementation plan and task graph.
 - Visible task board.

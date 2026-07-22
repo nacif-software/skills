@@ -13,6 +13,13 @@ V1 has two flagship workflows:
 - `review-pr`: review a pull request or branch, then either prepare review comments
   or apply accepted changes.
 
+The framing path adds an optional upstream workflow:
+
+- `product-brief`: frame the problem before design — operator, job-to-be-done,
+  desired outcome, numbered requirements, and relation to existing features. Feeds
+  `design-feature`. Optional and gated: used for net-new capability with fuzzy
+  product context, skipped for bugfixes and well-understood changes.
+
 The implementation path adds supporting workflows:
 
 - `plan-implementation`: convert an approved design into exact tasks, files, tests,
@@ -37,6 +44,7 @@ phase comes next and when to ask the user for a choice.
 
 Examples:
 
+- `product-brief`
 - `design-feature`
 - `plan-implementation`
 - `test-strategy`
@@ -53,6 +61,7 @@ small and focused.
 
 Examples:
 
+- `interview`
 - `context-briefing`
 - `task-dispatch-loop`
 - `verification-gate`
@@ -60,19 +69,26 @@ Examples:
 ## Default graph
 
 ```text
-design-feature
-  -> plan-implementation
-     -> test-strategy
-     -> pr-boundary
-     -> review-plan
-        -> execute-plan
-           -> context-briefing
-              -> task-dispatch-loop, one instance per task (implement + spec review)
-           -> checkpoint Codex review, once per PR-boundary group
-           -> spec-drift-check
-              -> review-pr
-                 -> verification-gate
+product-brief            (optional; net-new capability with fuzzy context)
+  -> design-feature
+     -> plan-implementation
+        -> test-strategy
+        -> pr-boundary
+        -> review-plan
+           -> execute-plan
+              -> context-briefing
+                 -> task-dispatch-loop, one instance per task (implement + spec review)
+              -> checkpoint Codex review, once per PR-boundary group
+              -> spec-drift-check
+                 -> review-pr
+                    -> verification-gate
 ```
+
+Graduated entry points: start at the stage that matches what is unknown, not always
+at the left. Fuzzy product context → `product-brief`; known problem, unknown
+solution → `design-feature`; known solution → `plan-implementation`; known plan →
+`execute-plan`. `interview` is the shared questioning discipline the framing and
+planning stages call; it is not a stage of its own.
 
 Hard gates:
 
@@ -109,12 +125,19 @@ Model routing:
 Workflow skills may chain to other skills by name:
 
 ```text
+product-brief
+  -> interview, to gather problem-space context the repo cannot answer
+  -> design-feature, when the brief is approved and design should start
+  -> verification-gate, before claiming the brief is complete
+
 design-feature
+  -> interview, to resolve open design decisions
   -> context-briefing, when preparing handoff or subagent briefs
   -> plan-implementation, when the user chooses to plan or implement
   -> verification-gate, before completion claims
 
 plan-implementation
+  -> interview, when a requirement is ambiguous and no artifact settles it
   -> context-briefing, when shaping task briefs
   -> test-strategy, when verification shape is non-trivial
   -> pr-boundary, when PR shape is not trivial
@@ -181,6 +204,7 @@ The default unit of handoff is an artifact, not a conversation.
 
 Durable artifacts:
 
+- Product briefs.
 - Design docs.
 - Decision maps.
 - Implementation plans.

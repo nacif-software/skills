@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: nacif
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Plan Implementation
@@ -33,7 +33,11 @@ model for this judgment-heavy work.
 ## Procedure
 
 1. Read the source artifact and extract goal, decisions, out-of-scope items, and
-   acceptance criteria.
+   acceptance criteria. If the source is a design that cites a `product-brief`, read
+   the brief too so requirement references stay meaningful.
+   - If a requirement or decision is genuinely ambiguous and no artifact settles it,
+     use `interview` (focus: the specific ambiguity; stop when the plan can proceed)
+     rather than guessing and encoding the guess as a task.
 2. Discover repo rules and nearby implementation patterns before planning.
 3. Pick test seams before task seams. Use `test-strategy` when behavior, risk, or
    verification is non-trivial.
