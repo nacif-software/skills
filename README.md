@@ -17,13 +17,16 @@ loads the right skill automatically when a task matches.
 This repo is organized around a recommended development path:
 
 ```text
-design-feature -> plan-implementation -> test-strategy -> pr-boundary -> review-plan -> execute-plan -> spec-drift-check -> review-pr -> verification-gate
+product-brief -> design-feature -> plan-implementation -> test-strategy -> pr-boundary -> review-plan -> execute-plan -> spec-drift-check -> review-pr -> verification-gate
 ```
 
-For non-trivial implementation, `execute-plan` starts only after the plan, test
-strategy, PR boundary, and plan review are ready or explicitly marked unnecessary.
-After execution, the branch moves through spec drift, PR review, and verification
-before any readiness claim.
+Start at the stage that matches what is unknown — the path has graduated entry
+points. `product-brief` (optional, leftmost) frames the problem for a net-new
+capability with fuzzy product context; a known problem starts at `design-feature`;
+a known solution at `plan-implementation`. For non-trivial implementation,
+`execute-plan` starts only after the plan, test strategy, PR boundary, and plan
+review are ready or explicitly marked unnecessary. After execution, the branch
+moves through spec drift, PR review, and verification before any readiness claim.
 
 The flagship workflows are project-agnostic. They discover local repository rules
 instead of hardcoding conventions from any one codebase.
@@ -67,7 +70,8 @@ collection as one plugin:
 | Skill | What it does |
 | --- | --- |
 | [`aggregate-dependabot-prs`](skills/aggregate-dependabot-prs/) | Bundles a backlog of open Dependabot PRs into a few CI-validated aggregate PRs, closing originals only for bundles that pass — never auto-merges. |
-| [`design-feature`](skills/design-feature/) | Curated feature design workflow: discover context, ask linked questions, write a design doc, and optionally continue to planning or implementation. |
+| [`product-brief`](skills/product-brief/) | Frames a net-new capability before design: operator, job-to-be-done, desired outcome, numbered requirements, and relation to existing features. Optional, gated, feeds `design-feature`. |
+| [`design-feature`](skills/design-feature/) | Curated feature design workflow: discover context, interview to close design decisions, write a design doc, and optionally continue to planning or implementation. |
 | [`plan-implementation`](skills/plan-implementation/) | Converts an approved design or PRD into a decision-complete implementation plan with files, tasks, test seams, snippets, and verification. |
 | [`test-strategy`](skills/test-strategy/) | Creates a risk-based test matrix with seams, commands, red/green signals, manual checks, and do-not-test decisions. |
 | [`pr-boundary`](skills/pr-boundary/) | Decides whether work should land as one PR, stacked PRs, separate PRs, prep work, migration sequence, or follow-up. |
@@ -75,6 +79,7 @@ collection as one plugin:
 | [`execute-plan`](skills/execute-plan/) | Implementation workflow for approved plans, including task splitting, subagent briefs, review gates, and verification. |
 | [`spec-drift-check`](skills/spec-drift-check/) | Compares implemented work against design, plan, test strategy, PR boundary, and accepted scope before PR readiness. |
 | [`review-pr`](skills/review-pr/) | PR/branch review workflow with comment-only mode and apply-changes mode. |
+| [`interview`](skills/interview/) | Discipline for reducing uncertainty in an artifact through disciplined questioning — one at a time, never re-asking what a file answers, stopping when the answer would not change the outcome. |
 | [`context-briefing`](skills/context-briefing/) | Discipline for passing minimal, useful context to subagents and handoffs. |
 | [`task-dispatch-loop`](skills/task-dispatch-loop/) | Runs one plan task through fresh subagents: implement, spec review, fix loop, done. Code-quality review runs separately, once per PR-boundary group. |
 | [`verification-gate`](skills/verification-gate/) | Discipline for requiring fresh evidence before completion, fixed, ready, or passing claims. |
@@ -110,6 +115,8 @@ Take this reviewed plan and implement it with subagents where the tasks are inde
 
 - [Architecture](docs/architecture.md): how workflows, discipline skills, artifacts,
   and context control fit together.
+- [Product brief workflow](docs/workflows/product-brief.md): framing the problem —
+  operator, outcome, requirements — before design.
 - [Design feature workflow](docs/workflows/design-feature.md): the full happy path
   for feature design.
 - [Plan implementation workflow](docs/workflows/plan-implementation.md): the plan
