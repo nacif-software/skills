@@ -69,12 +69,15 @@ collection as one plugin:
 | [`aggregate-dependabot-prs`](skills/aggregate-dependabot-prs/) | Bundles a backlog of open Dependabot PRs into a few CI-validated aggregate PRs, closing originals only for bundles that pass — never auto-merges. |
 | [`design-feature`](skills/design-feature/) | Curated feature design workflow: discover context, ask linked questions, write a design doc, and optionally continue to planning or implementation. |
 | [`plan-implementation`](skills/plan-implementation/) | Converts an approved design or PRD into a decision-complete implementation plan with files, tasks, test seams, snippets, and verification. |
+| [`ddd-planning`](skills/ddd-planning/) | DDD-guided feature planning: walks strategic alignment, model, tactical and supple design before building, defining bounded contexts, aggregates, and the ubiquitous language. |
 | [`test-strategy`](skills/test-strategy/) | Creates a risk-based test matrix with seams, commands, red/green signals, manual checks, and do-not-test decisions. |
 | [`pr-boundary`](skills/pr-boundary/) | Decides whether work should land as one PR, stacked PRs, separate PRs, prep work, migration sequence, or follow-up. |
 | [`review-plan`](skills/review-plan/) | Reviews implementation plans before execution for requirement coverage, test strategy, task safety, risk, and PR boundaries. |
 | [`execute-plan`](skills/execute-plan/) | Implementation workflow for approved plans, including task splitting, subagent briefs, review gates, and verification. |
+| [`implement-all`](skills/implement-all/) | Implements a batch of tickets or items one at a time using `/implement` serially with subagents. |
 | [`spec-drift-check`](skills/spec-drift-check/) | Compares implemented work against design, plan, test strategy, PR boundary, and accepted scope before PR readiness. |
 | [`review-pr`](skills/review-pr/) | PR/branch review workflow with comment-only mode and apply-changes mode. |
+| [`ddd-review`](skills/ddd-review/) | Reviews a diff, file, or directory in the light of Domain-Driven Design: ubiquitous language, layer isolation, aggregates, and supple design. |
 | [`context-briefing`](skills/context-briefing/) | Discipline for passing minimal, useful context to subagents and handoffs. |
 | [`task-dispatch-loop`](skills/task-dispatch-loop/) | Runs one plan task through fresh subagents: implement, spec review, fix loop, done. Code-quality review runs separately, once per PR-boundary group. |
 | [`verification-gate`](skills/verification-gate/) | Discipline for requiring fresh evidence before completion, fixed, ready, or passing claims. |
