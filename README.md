@@ -88,6 +88,7 @@ collection as one plugin:
 | [`review-dependabot-prs`](skills/review-dependabot-prs/) | Reviews every open Dependabot PR in parallel, checks changelogs for breaking changes, and gives a per-PR merge-safety verdict. |
 | [`scope-check`](skills/scope-check/) | Checks a feature or plan against the original ask — flags scope creep and needless complexity against the minimum-viable version. |
 | [`whatsapp-analyzer`](skills/whatsapp-analyzer/) | Extracts, transcribes, and OCRs WhatsApp chat exports (text, voice, images, PDFs) into one structured, timeline-based report. |
+| [`redescribe-pr`](skills/redescribe-pr/) | Rewrites the current branch's open PR title and description from its diff — blind to the existing title/body so it describes the change, not a stale summary. Never opens a PR. |
 
 More workflows are expected to grow out of real use.
 
