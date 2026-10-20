@@ -89,6 +89,7 @@ collection as one plugin:
 | [`scope-check`](skills/scope-check/) | Checks a feature or plan against the original ask — flags scope creep and needless complexity against the minimum-viable version. |
 | [`whatsapp-analyzer`](skills/whatsapp-analyzer/) | Extracts, transcribes, and OCRs WhatsApp chat exports (text, voice, images, PDFs) into one structured, timeline-based report. |
 | [`redescribe-pr`](skills/redescribe-pr/) | Rewrites the current branch's open PR title and description from its diff — blind to the existing title/body so it describes the change, not a stale summary. Never opens a PR. |
+| [`mental-model`](skills/mental-model/) | Explains a PR, branch, or diff as 4–16 short bullets: what existed before, what changes, what is structurally new, and what users notice. A map of the change, not a review. |
 
 More workflows are expected to grow out of real use.
 
